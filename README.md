@@ -1,3 +1,8 @@
+> This repo hosts two small web apps:
+> **🧠 Lumen** (below) and **📈 [MFFU Trade Copilot](tradebot/README.md)** — an AI
+> chart-analysis assistant + rules guardian for MyFundedFutures 25k evaluations,
+> living in [`tradebot/`](tradebot/).
+
 # 🧠 Lumen — daily mind training
 
 Lumen is a lightweight web app for measuring and training your mind. Set an IQ
