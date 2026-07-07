@@ -1,0 +1,13 @@
+{
+  "name": "MFFU Trade Copilot",
+  "short_name": "TradeCopilot",
+  "description": "AI chart analysis + MyFundedFutures 25k rules guardian.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#0d0d0d",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
