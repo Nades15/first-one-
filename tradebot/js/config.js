@@ -22,13 +22,45 @@ window.TBConfig = (function () {
       maxLoss: 1000,
       drawdownMode: 'eod-trailing',
       lockBuffer: 100,            // MLL locks at $25,100
-      consistencyPct: 0,          // no consistency rule
+      consistencyPct: 50,         // applies during the evaluation (not once funded)
       dailyLossLimit: 0,          // none
       maxMinis: 3,
       maxMicros: 30,
-      minTradingDays: 1,
+      minTradingDays: 2,
       activityRule: 'Place at least one trade every 7 calendar days.',
-      notes: 'No consistency rule, no daily loss limit. MLL locks at $25,100.',
+      notes: '50% consistency rule during the evaluation only; no daily loss limit. MLL locks at $25,100.',
+    },
+    rapid50k: {
+      id: 'rapid50k',
+      label: 'Rapid 50k',
+      startBalance: 50000,
+      profitTarget: 3000,
+      maxLoss: 2000,
+      drawdownMode: 'eod-trailing',
+      lockBuffer: 100,            // MLL locks at $50,100
+      consistencyPct: 50,
+      dailyLossLimit: 0,
+      maxMinis: 5,
+      maxMicros: 50,
+      minTradingDays: 2,
+      activityRule: 'Place at least one trade every 7 calendar days.',
+      notes: '50% consistency rule during the evaluation only; no daily loss limit. MLL locks at $50,100.',
+    },
+    rapid100k: {
+      id: 'rapid100k',
+      label: 'Rapid 100k',
+      startBalance: 100000,
+      profitTarget: 6000,
+      maxLoss: 3000,
+      drawdownMode: 'eod-trailing',
+      lockBuffer: 100,            // MLL locks at $100,100
+      consistencyPct: 50,
+      dailyLossLimit: 0,
+      maxMinis: 10,
+      maxMicros: 100,
+      minTradingDays: 2,
+      activityRule: 'Place at least one trade every 7 calendar days.',
+      notes: '50% consistency rule during the evaluation only; no daily loss limit. MLL locks at $100,100.',
     },
     builder25k: {
       id: 'builder25k',
@@ -44,7 +76,23 @@ window.TBConfig = (function () {
       maxMicros: 30,
       minTradingDays: 1,
       activityRule: 'Stay active; check your dashboard for the current activity rule.',
-      notes: 'Higher $3,000 target. Your Max Loss is $1,500 or $2,000 depending on the add-on you bought — set it in Settings.',
+      notes: 'Higher $3,000 target, but no consistency rule. Your Max Loss is $1,500 or $2,000 depending on the add-on you bought — set it in Settings.',
+    },
+    builder50k: {
+      id: 'builder50k',
+      label: 'Builder 50k',
+      startBalance: 50000,
+      profitTarget: 6000,
+      maxLoss: 3000,
+      drawdownMode: 'eod-trailing',
+      lockBuffer: 100,
+      consistencyPct: 0,
+      dailyLossLimit: 0,
+      maxMinis: 5,
+      maxMicros: 50,
+      minTradingDays: 1,
+      activityRule: 'Stay active; check your dashboard for the current activity rule.',
+      notes: 'No consistency rule. Check your Max Loss on your dashboard — Builder variants differ — and set it here.',
     },
     starter25k: {
       id: 'starter25k',
@@ -84,6 +132,14 @@ window.TBConfig = (function () {
     MCL: { label: 'MCL — Micro Crude Oil',      tickSize: 0.01, tickValue: 1.00,  minisEquivalent: 0.1 },
   };
 
+  const TIMEFRAMES = ['1m', '2m', '3m', '5m', '15m', '30m', '1h', '4h', 'Daily', 'not sure'];
+
+  const STYLES = [
+    { id: 'scalp', label: 'Scalp (in & out fast, tight stops)' },
+    { id: 'day', label: 'Day trade (minutes to hours)' },
+    { id: 'swing', label: 'Swing (hours to days)' },
+  ];
+
   const MODELS = [
     { id: 'claude-sonnet-5',          label: 'Claude Sonnet 5 (recommended)' },
     { id: 'claude-fable-5',           label: 'Claude Fable 5 (most capable, pricier)' },
@@ -96,5 +152,5 @@ window.TBConfig = (function () {
     return Object.assign({}, base, overrides || {});
   }
 
-  return { PLANS, INSTRUMENTS, MODELS, planWithOverrides };
+  return { PLANS, INSTRUMENTS, MODELS, TIMEFRAMES, STYLES, planWithOverrides };
 })();

@@ -13,6 +13,9 @@ window.TBStore = (function () {
         planOverrides: {},        // user-edited rule values, merged over the preset
         riskPct: 25,              // % of distance-to-breach risked per trade
         defaultInstrument: 'MNQ',
+        defaultTimeframe: '5m',
+        defaultStyle: 'day',
+        minConfidence: 65,        // signals below this render as NO TRADE
         onboarded: false,
       },
       account: {

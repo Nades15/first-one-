@@ -7,11 +7,15 @@ drawdown so a single trade can never breach your account.
 
 ## What it does
 
-- **🎯 Analyze** — paste (Ctrl+V), drag, or upload any chart screenshot. Claude's vision
-  model reads the structure, levels, and candles and returns a signal with entry / SL /
-  TP1 / TP2, its confidence, the reasoning, and what would invalidate the idea. The prompt
-  is deliberately biased toward **NO TRADE** — unclear charts get a pass, because standing
-  aside costs nothing and breaches cost everything.
+- **🎯 Analyze** — paste (Ctrl+V), drag, or upload up to **3 chart screenshots** (e.g. a
+  15-minute chart for bias plus a 2-minute chart for the entry — the AI does top-down
+  analysis and refuses trades where the timeframes disagree). Declare your entry timeframe
+  and style (scalp / day / swing) so stops and targets fit how you actually trade. Claude's
+  vision model returns a signal with entry / SL / TP1 / TP2, its confidence, the reasoning,
+  and what would invalidate the idea. The prompt is deliberately biased toward **NO TRADE**
+  — unclear charts get a pass, because standing aside costs nothing and breaches cost
+  everything. Signals offering under 1.2R to TP1 are auto-downgraded to NO TRADE, and a
+  configurable **confidence threshold** (default 65%) gates low-conviction reads.
 - **🛡️ Account** — a live model of your MFFU account: balance, the EOD-trailing Max Loss
   Limit (with the $25,100 lock), buffer to breach, profit-target progress, today's P&L,
   trading days, and the consistency meter on plans that have one. An **End my day** button
@@ -22,10 +26,14 @@ drawdown so a single trade can never breach your account.
   much, you get a hard **DON'T TAKE THIS TRADE** banner instead of a size.
 - **📓 Journal** — log trades (one tap from a signal), track win rate and net P&L; entries
   update the account model automatically.
+- **📊 AI accuracy tracking** — trades logged from signals are linked back to them, so the
+  Journal shows the AI's real win rate broken down by confidence bucket and timeframe.
+  If low-confidence reads aren't hitting, raise the threshold in Settings — the tool tells
+  you when to trust it.
 
-Supports all three current 25k plans as editable presets: **Rapid**, **Builder**, and the
-legacy **Starter/Flex** (50% consistency rule handled). Instruments: ES, MES, NQ, MNQ, YM,
-MYM, RTY, M2K, GC, MGC, CL, MCL.
+Editable plan presets: **Rapid 25k/50k/100k**, **Builder 25k/50k**, and the legacy
+**Starter/Flex 25k**. The 50% evaluation consistency rule (all plans except Builder) is
+tracked live. Instruments: ES, MES, NQ, MNQ, YM, MYM, RTY, M2K, GC, MGC, CL, MCL.
 
 ## Setup (2 minutes)
 
