@@ -1,7 +1,9 @@
-> This repo hosts two small web apps:
-> **🧠 Lumen** (below) and **📈 [MFFU Trade Copilot](tradebot/README.md)** — an AI
+> This repo hosts three small web apps:
+> **🧠 Lumen** (below), **📈 [MFFU Trade Copilot](tradebot/README.md)** — an AI
 > chart-analysis assistant + rules guardian for MyFundedFutures 25k evaluations,
-> living in [`tradebot/`](tradebot/).
+> living in [`tradebot/`](tradebot/) — and **🎯 [Scout](scanner/README.md)** — an
+> on-demand Polymarket/Kalshi scanner that finds bets priced around 75% to hit,
+> with an optional AI second opinion, living in [`scanner/`](scanner/).
 
 # 🧠 Lumen — daily mind training
 

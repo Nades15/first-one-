@@ -1,0 +1,13 @@
+{
+  "name": "Scout — prediction market scanner",
+  "short_name": "Scout",
+  "description": "Scan Polymarket & Kalshi for bets priced around 75% to hit, with an optional AI second opinion.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#0d0d0d",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
