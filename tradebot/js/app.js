@@ -5,8 +5,7 @@
   const $ = sel => document.querySelector(sel);
   const app = () => $('#app');
   let tab = 'analyze';
-  let chartBlob = null;         // current pasted/uploaded screenshot
-  let chartPreviewUrl = null;
+  let charts = [];              // up to 3 { blob, url, timeframe } screenshots
   let lastResult = null;        // last validated signal + audit
   let analyzing = false;
   let journalPrefill = null;
@@ -79,73 +78,104 @@
   function renderAnalyze(snap) {
     const s = TBStore.load();
     const instr = TBConfig.INSTRUMENTS;
+    const tfOptions = sel => TBConfig.TIMEFRAMES.map(tf =>
+      '<option value="' + tf + '"' + (tf === sel ? ' selected' : '') + '>' + tf + '</option>').join('');
     $('#screen').innerHTML =
       (snap.breached ? '<div class="banner banner-bad">⛔ Balance is at/below your Max Loss Limit. If this matches your MFFU dashboard, this account is breached.</div>' : '') +
       '<div class="card">' +
-        '<div class="card-head"><h2>Chart analysis</h2><span class="card-sub">paste (Ctrl+V) or upload a screenshot</span></div>' +
-        '<label class="field-inline">Instrument ' +
+        '<div class="card-head"><h2>Chart analysis</h2><span class="card-sub">paste (Ctrl+V) or upload up to ' + TBAnalyzer.MAX_CHARTS + ' charts</span></div>' +
+        '<div class="form-grid">' +
+        '<label>Instrument' +
           '<select id="an-instr">' + Object.keys(instr).map(k =>
             '<option value="' + k + '"' + (k === s.settings.defaultInstrument ? ' selected' : '') + '>' + instr[k].label + '</option>').join('') +
           '</select></label>' +
-        '<div id="dropzone" class="dropzone' + (chartPreviewUrl ? ' has-img' : '') + '">' +
-          (chartPreviewUrl
-            ? '<img src="' + chartPreviewUrl + '" alt="chart">'
-            : '<div class="dz-hint">🖼️ Tap to upload<br><span>or paste a screenshot anywhere on this page</span></div>') +
+        '<label>Entry timeframe<select id="an-tf">' + tfOptions(s.settings.defaultTimeframe) + '</select></label>' +
+        '<label>Style<select id="an-style">' + TBConfig.STYLES.map(st =>
+          '<option value="' + st.id + '"' + (st.id === s.settings.defaultStyle ? ' selected' : '') + '>' + st.label + '</option>').join('') + '</select></label>' +
         '</div>' +
-        '<input type="file" id="an-file" accept="image/*" hidden>' +
+        (charts.length
+          ? '<div class="thumbs">' + charts.map((c, i) =>
+              '<div class="thumb"><img src="' + c.url + '" alt="chart ' + (i + 1) + '">' +
+              '<div class="thumb-bar"><select data-tf-tag="' + i + '" title="timeframe of this chart">' + tfOptions(c.timeframe) + '</select>' +
+              '<button class="btn btn-ghost btn-sm" data-rm-chart="' + i + '">✕</button></div></div>').join('') +
+            '</div>' +
+            '<p class="fineprint">Tag each chart\'s timeframe. Adding a higher-timeframe chart alongside your entry chart lets the AI do top-down analysis — the single best accuracy boost.</p>'
+          : '') +
+      (charts.length < TBAnalyzer.MAX_CHARTS
+        ? '<div id="dropzone" class="dropzone' + (charts.length ? ' dz-slim' : '') + '">' +
+            '<div class="dz-hint">🖼️ ' + (charts.length ? 'Add another chart (e.g. higher timeframe)' : 'Tap to upload') + '<br><span>or paste a screenshot anywhere on this page</span></div>' +
+          '</div>'
+        : '') +
+        '<input type="file" id="an-file" accept="image/*" multiple hidden>' +
         '<div class="row-gap">' +
-          '<button class="btn btn-primary btn-lg" id="an-go"' + (chartBlob && !analyzing ? '' : ' disabled') + '>' +
-            (analyzing ? 'Analyzing…' : 'Analyze chart') + '</button>' +
-          (chartBlob ? '<button class="btn btn-ghost" id="an-clear">Clear</button>' : '') +
+          '<button class="btn btn-primary btn-lg" id="an-go"' + (charts.length && !analyzing ? '' : ' disabled') + '>' +
+            (analyzing ? 'Analyzing…' : 'Analyze chart' + (charts.length > 1 ? 's' : '')) + '</button>' +
+          (charts.length ? '<button class="btn btn-ghost" id="an-clear">Clear</button>' : '') +
         '</div>' +
         '<div id="an-error" class="error-text"></div>' +
       '</div>' +
       '<div id="an-result">' + (lastResult ? '' : recentSignalsHTML()) + '</div>';
 
     const dz = $('#dropzone');
-    dz.onclick = () => $('#an-file').click();
-    $('#an-file').onchange = e => { if (e.target.files[0]) setChart(e.target.files[0]); };
-    dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag'); };
-    dz.ondragleave = () => dz.classList.remove('drag');
-    dz.ondrop = e => {
-      e.preventDefault(); dz.classList.remove('drag');
-      const f = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f && f.type.startsWith('image/')) setChart(f);
+    if (dz) {
+      dz.onclick = () => $('#an-file').click();
+      dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag'); };
+      dz.ondragleave = () => dz.classList.remove('drag');
+      dz.ondrop = e => {
+        e.preventDefault(); dz.classList.remove('drag');
+        for (const f of e.dataTransfer.files || []) if (f.type.startsWith('image/')) addChart(f, false);
+        render();
+      };
+    }
+    $('#an-file').onchange = e => {
+      for (const f of e.target.files || []) addChart(f, false);
+      render();
     };
+    document.querySelectorAll('[data-rm-chart]').forEach(b => b.onclick = () => {
+      const c = charts.splice(Number(b.dataset.rmChart), 1)[0];
+      if (c) URL.revokeObjectURL(c.url);
+      lastResult = null; render();
+    });
+    document.querySelectorAll('[data-tf-tag]').forEach(sel => sel.onchange = () => {
+      charts[Number(sel.dataset.tfTag)].timeframe = sel.value;
+    });
     const clearBtn = $('#an-clear');
-    if (clearBtn) clearBtn.onclick = () => { clearChart(); render(); };
+    if (clearBtn) clearBtn.onclick = () => { clearCharts(); render(); };
     $('#an-go').onclick = runAnalysis;
     if (lastResult) renderResultCard(snap);
   }
 
-  function setChart(blob) {
-    clearChart();
-    chartBlob = blob;
-    chartPreviewUrl = URL.createObjectURL(blob);
+  function addChart(blob, rerender) {
+    if (charts.length >= TBAnalyzer.MAX_CHARTS) return;
+    charts.push({ blob, url: URL.createObjectURL(blob), timeframe: TBStore.load().settings.defaultTimeframe });
     lastResult = null;
-    render();
+    if (rerender !== false) render();
   }
 
-  function clearChart() {
-    if (chartPreviewUrl) URL.revokeObjectURL(chartPreviewUrl);
-    chartBlob = null; chartPreviewUrl = null; lastResult = null;
+  function clearCharts() {
+    for (const c of charts) URL.revokeObjectURL(c.url);
+    charts = []; lastResult = null;
   }
 
   async function runAnalysis() {
     const s = TBStore.load();
     const symbol = $('#an-instr').value;
+    const timeframe = $('#an-tf').value;
+    const style = $('#an-style').value;
     const instrument = Object.assign({ symbol }, TBConfig.INSTRUMENTS[symbol]);
     analyzing = true; render();
     try {
       const sig = await TBAnalyzer.analyze({
         apiKey: s.settings.apiKey,
         model: s.settings.model,
-        imageBlob: chartBlob,
+        charts,
         instrument,
+        declaredTimeframe: timeframe,
+        style: (TBConfig.STYLES.find(st => st.id === style) || {}).label || style,
         accountContext: TBJournal.accountContextText(),
       });
-      lastResult = { sig, symbol };
-      TBJournal.saveSignal(sig, symbol, s.settings.model);
+      const rec = TBJournal.saveSignal(sig, symbol, s.settings.model);
+      lastResult = { sig, symbol, signalId: rec.id };
     } catch (err) {
       lastResult = null;
       analyzing = false; render();
@@ -153,30 +183,39 @@
       return;
     }
     analyzing = false;
-    s.settings.defaultInstrument = symbol; TBStore.save();
+    s.settings.defaultInstrument = symbol;
+    s.settings.defaultTimeframe = timeframe;
+    s.settings.defaultStyle = style;
+    TBStore.save();
     render();
   }
 
   function renderResultCard(snap) {
-    const { sig, symbol } = lastResult;
+    const { sig, symbol, signalId } = lastResult;
     const instrument = Object.assign({ symbol }, TBConfig.INSTRUMENTS[symbol]);
     const s = TBStore.load();
+    const gated = sig.signal !== 'NO_TRADE' && sig.confidence < s.settings.minConfidence;
     let audit = null;
-    if (sig.signal !== 'NO_TRADE') {
+    if (sig.signal !== 'NO_TRADE' && !gated) {
       audit = TBRules.preTradeCheck({
         plan: snap.plan, balance: snap.balance, floor: snap.floor,
         riskPct: s.settings.riskPct, entry: sig.entry, stopLoss: sig.stopLoss,
         instrument, dayPnls: TBJournal.dayPnls(),
       });
     }
-    const cls = sig.signal === 'LONG' ? 'sig-long' : sig.signal === 'SHORT' ? 'sig-short' : 'sig-none';
-    const icon = sig.signal === 'LONG' ? '▲' : sig.signal === 'SHORT' ? '▼' : '⏸';
+    const cls = (sig.signal === 'LONG' && !gated) ? 'sig-long' : (sig.signal === 'SHORT' && !gated) ? 'sig-short' : 'sig-none';
+    const icon = gated ? '⏸' : sig.signal === 'LONG' ? '▲' : sig.signal === 'SHORT' ? '▼' : '⏸';
     let html =
       '<div class="card result ' + cls + '">' +
-        '<div class="sig-head"><span class="sig-badge">' + icon + ' ' + sig.signal.replace('_', ' ') + '</span>' +
+        '<div class="sig-head"><span class="sig-badge">' + icon + ' ' + (gated ? 'NO TRADE' : sig.signal.replace('_', ' ')) + '</span>' +
         '<span class="sig-conf">' + sig.confidence + '% confidence · ' + esc(sig.timeframe || '') + '</span></div>';
 
-    if (sig.signal === 'NO_TRADE') {
+    if (gated) {
+      html += '<div class="banner banner-warn">Below your ' + s.settings.minConfidence + '% confidence threshold — treated as NO TRADE. The read is shown for information only.</div>' +
+        '<p class="sig-text">The model leaned <strong>' + sig.signal + '</strong> at ' + sig.confidence + '%: ' + esc(sig.rationale) + '</p>' +
+        '<p class="sig-sub"><strong>Invalidation:</strong> ' + esc(sig.invalidation) + '</p>' +
+        '<p class="sig-sub good-note">Low-conviction trades are where evaluations bleed out. Wait for a cleaner one.</p>';
+    } else if (sig.signal === 'NO_TRADE') {
       html += '<p class="sig-text">' + esc(sig.rationale) + '</p>' +
         (sig.risks ? '<p class="sig-sub"><strong>Notes:</strong> ' + esc(sig.risks) + '</p>' : '') +
         '<p class="sig-sub good-note">Standing aside costs $0. That is how evaluations get passed.</p>';
@@ -219,7 +258,9 @@
       journalPrefill = {
         instrument: symbol, dir: sig.signal, entry: sig.entry,
         contracts: audit && audit.sizing ? audit.sizing.contracts : 1,
+        signalId, sigConfidence: sig.confidence, sigTimeframe: sig.timeframe,
       };
+      lastResult = null; // signal consumed — Analyze shows recent reads again
       tab = 'journal'; render();
     };
   }
@@ -228,10 +269,13 @@
     const sigs = TBStore.load().signals;
     if (!sigs.length) return '';
     return '<div class="card"><div class="card-head"><h2>Recent reads</h2></div>' +
-      sigs.slice(0, 5).map(r =>
-        '<div class="recent-row"><span class="sig-mini ' + (r.sig.signal === 'LONG' ? 'sig-long' : r.sig.signal === 'SHORT' ? 'sig-short' : 'sig-none') + '">' +
-        r.sig.signal.replace('_', ' ') + '</span> ' + esc(r.instrument) +
-        ' <span class="muted">' + new Date(r.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' · ' + r.sig.confidence + '%</span></div>').join('') +
+      sigs.slice(0, 5).map(r => {
+        const outcome = TBJournal.signalOutcome(r.id);
+        return '<div class="recent-row"><span class="sig-mini ' + (r.sig.signal === 'LONG' ? 'sig-long' : r.sig.signal === 'SHORT' ? 'sig-short' : 'sig-none') + '">' +
+          r.sig.signal.replace('_', ' ') + '</span> ' + esc(r.instrument) +
+          (outcome ? ' <span class="outcome-' + outcome + '">' + (outcome === 'win' ? '✓ win' : '✗ loss') + '</span>' : '') +
+          ' <span class="muted">' + new Date(r.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' · ' + r.sig.confidence + '%</span></div>';
+      }).join('') +
       '</div>';
   }
 
@@ -295,12 +339,32 @@
 
   /* ============================ journal ============================ */
 
+  function aiAccuracyHTML() {
+    const ai = TBJournal.aiStats();
+    if (!ai.n) return '';
+    const pct = r => r === null ? '—' : Math.round(r * 100) + '%';
+    const bucketRows = list => list.filter(b => b.n > 0).map(b =>
+      '<tr><td>' + esc(b.label) + '</td><td>' + b.n + '</td><td>' + pct(b.winRate) + '</td></tr>').join('');
+    return '<div class="card"><div class="card-head"><h2>AI accuracy</h2>' +
+      '<span class="card-sub">' + ai.n + ' signal-based trade' + (ai.n === 1 ? '' : 's') + ' · net ' + fmt$(ai.netPnl) + '</span></div>' +
+      '<div class="stat-row"><div class="stat-tile"><span class="stat-label">Signal win rate</span>' +
+      '<span class="stat-value">' + pct(ai.winRate) + '</span>' +
+      (ai.n < 10 ? '<span class="stat-sub">under 10 trades — too few to mean much yet</span>' : '<span class="stat-sub">&nbsp;</span>') + '</div></div>' +
+      '<table class="mini-table"><tr><th>Confidence</th><th>n</th><th>Win rate</th></tr>' + bucketRows(ai.byConfidence) + '</table>' +
+      (ai.byTimeframe.length > 1
+        ? '<table class="mini-table"><tr><th>Timeframe</th><th>n</th><th>Win rate</th></tr>' + bucketRows(ai.byTimeframe) + '</table>'
+        : '') +
+      '<p class="fineprint">Use this to learn when to trust the tool: if sub-70% reads aren\'t hitting, raise your confidence threshold in Settings.</p>' +
+      '</div>';
+  }
+
   function renderJournal() {
     const s = TBStore.load();
     const st = TBJournal.stats();
     const pre = journalPrefill || {};
     const instr = TBConfig.INSTRUMENTS;
     $('#screen').innerHTML =
+      aiAccuracyHTML() +
       '<div class="stat-row">' +
         '<div class="stat-tile"><span class="stat-label">Trades</span><span class="stat-value">' + st.count + '</span></div>' +
         '<div class="stat-tile"><span class="stat-label">Win rate</span><span class="stat-value">' + (st.count ? Math.round(st.winRate * 100) + '%' : '—') + '</span></div>' +
@@ -340,6 +404,7 @@
         instrument: $('#j-instr').value, dir: $('#j-dir').value,
         contracts: $('#j-qty').value, entry: $('#j-entry').value, exit: $('#j-exit').value,
         pnl: $('#j-pnl').value, fromSignal, notes: $('#j-notes').value,
+        signalId: pre.signalId, sigConfidence: pre.sigConfidence, sigTimeframe: pre.sigTimeframe,
       });
       journalPrefill = null;
       render();
@@ -380,6 +445,8 @@
       '<div class="card form-card"><div class="card-head"><h2>Risk</h2></div>' +
         '<label>Risk per trade (% of remaining buffer)<input id="st-risk" type="number" min="1" max="100" value="' + s.settings.riskPct + '"></label>' +
         '<p class="fineprint">At 25% you survive at least 4 straight max-size losses. Raising this is how evaluations die.</p>' +
+        '<label>Minimum signal confidence (%)<input id="st-conf" type="number" min="0" max="100" value="' + s.settings.minConfidence + '"></label>' +
+        '<p class="fineprint">Signals below this render as NO TRADE. Raise it if the AI accuracy card shows low-confidence reads aren\'t hitting.</p>' +
       '</div>' +
       '<div class="card form-card"><div class="card-head"><h2>Danger zone</h2></div>' +
         '<button class="btn" id="st-reset-acct">Reset account tracking (keep settings)</button>' +
@@ -391,6 +458,10 @@
       const sNow = TBStore.load();
       sNow.settings.planId = $('#st-plan').value;
       sNow.settings.planOverrides = {};
+      // fresh account (nothing tracked yet): snap balance to the new plan's start
+      if (!sNow.account.days.length && !sNow.trades.length) {
+        sNow.account.balance = TBConfig.PLANS[sNow.settings.planId].startBalance;
+      }
       TBStore.save(); renderSettings();
     };
     $('#st-save').onclick = () => {
@@ -398,6 +469,7 @@
       sNow.settings.apiKey = $('#st-key').value.trim();
       sNow.settings.model = $('#st-model').value;
       sNow.settings.riskPct = Math.max(1, Math.min(100, parseFloat($('#st-risk').value) || 25));
+      sNow.settings.minConfidence = Math.max(0, Math.min(100, parseFloat($('#st-conf').value) || 0));
       const base = TBConfig.PLANS[sNow.settings.planId];
       const overrides = {};
       document.querySelectorAll('[data-rule]').forEach(inp => {
@@ -429,7 +501,7 @@
     for (const it of items) {
       if (it.type.startsWith('image/')) {
         tab = 'analyze';
-        setChart(it.getAsFile());
+        addChart(it.getAsFile());
         return;
       }
     }

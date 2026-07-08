@@ -177,6 +177,18 @@ input, select {
 .banner span { font-weight: 400; font-size: 0.84rem; }
 .banner-bad { background: var(--bad-bg); color: var(--bad); }
 .banner-good { background: var(--good-bg); color: var(--good); }
+.banner-warn { background: var(--warn-bg); color: var(--warn); font-weight: 600; font-size: 0.85rem; }
+
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.thumb { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--page); }
+.thumb img { width: 100%; max-height: 130px; object-fit: cover; display: block; }
+.thumb-bar { display: flex; gap: 4px; align-items: center; padding: 4px; }
+.thumb-bar select { padding: 3px 6px; font-size: 0.78rem; flex: 1; }
+.dz-slim { min-height: 0; }
+.dz-slim .dz-hint { padding: 12px; font-size: 0.85rem; }
+
+.outcome-win { color: var(--good); font-size: 0.78rem; font-weight: 700; }
+.outcome-loss { color: var(--bad); font-size: 0.78rem; font-weight: 700; }
 
 .sig-mini { font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
 .sig-mini.sig-long { background: var(--long-bg); color: var(--good); }

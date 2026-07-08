@@ -1,34 +1,45 @@
 /* MFFU Trade Copilot — chart analysis via the Claude API.
  * Calls the API directly from the browser with the user's own key
  * (never stored anywhere but localStorage on this device).
+ * UMD wrapper so validation logic is unit-testable in node
+ * (the DOM-dependent image prep is guarded).
  */
-window.TBAnalyzer = (function () {
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.TBAnalyzer = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
   const API_URL = 'https://api.anthropic.com/v1/messages';
   const MAX_EDGE = 1568; // Claude vision sweet spot — larger is resized anyway
+  const MIN_RR = 1.2;    // signals with TP1 below this R:R are downgraded to NO_TRADE
+  const MAX_CHARTS = 3;
 
-  const SYSTEM_PROMPT = `You are a disciplined futures trading analyst helping a trader pass a MyFundedFutures prop-firm evaluation. You will be shown a single chart screenshot. Your #1 priority is capital preservation: the trader is destroyed by drawdown breaches, not by missed trades. When the chart is unclear, mixed, mid-range, or missing key information, answer NO_TRADE. A good evaluation is passed with a few clean, obvious setups — not by forcing trades.
+  const SYSTEM_PROMPT = `You are a disciplined futures trading analyst helping a trader pass a MyFundedFutures prop-firm evaluation. You will be shown one to three chart screenshots of the same instrument. Your #1 priority is capital preservation: the trader is destroyed by drawdown breaches, not by missed trades. When the picture is unclear, mixed, mid-range, or missing key information, answer NO_TRADE. A good evaluation is passed with a few clean, obvious setups — not by forcing trades.
 
-Analyze only what is visible: trend structure, support/resistance, candlestick behavior, any indicators shown, volume if visible. You cannot see order flow, news, or higher timeframes unless they are in the image — say so when it matters.
+If multiple charts are provided, they are labeled with their timeframes: do top-down analysis. Establish directional bias on the higher timeframe, and only signal a trade when the lower (entry) timeframe shows a trigger IN THE SAME DIRECTION as that bias. If the timeframes disagree, answer NO_TRADE and say which one is fighting the other.
+
+Respect the trader's declared timeframe and style: stop and target distances must be proportionate to that timeframe (a scalp does not use a swing-sized stop, and a swing idea should not be judged off one candle). If the chart's visible timeframe contradicts what the trader declared, point it out and lean NO_TRADE. If a session clock is visible, factor in the time of day (opening drive vs lunch chop vs close).
+
+Analyze only what is visible: trend structure, support/resistance, candlestick behavior, any indicators shown, volume if visible. You cannot see order flow, news, or timeframes not pictured — say so when it matters. Consider both the continuation case and the reversal case; if they are evenly matched, that is a NO_TRADE.
 
 Respond with ONLY a JSON object, no markdown fences, no prose before or after:
 {
   "signal": "LONG" | "SHORT" | "NO_TRADE",
   "confidence": <0-100, be honest; below 60 should be NO_TRADE>,
-  "timeframe": "<chart timeframe if visible, else 'unknown'>",
+  "timeframe": "<entry chart timeframe if visible, else 'unknown'>",
   "entry": <suggested entry price, or null>,
   "stopLoss": <price where the idea is wrong, or null>,
   "tp1": <first target price, or null>,
   "tp2": <second target price, or null>,
-  "rationale": "<2-4 sentences: the setup and why>",
+  "rationale": "<2-4 sentences: the setup and why; mention the higher-timeframe bias if multiple charts>",
   "invalidation": "<what would make this trade wrong before entry>",
   "risks": "<what you cannot see or what could go wrong>"
 }
 
-Rules for prices: read the price axis carefully. Stop losses go beyond structure (swing high/low), not at arbitrary distances. TP1 should be a realistic nearby level (aim for at least 1.5R); TP2 an extended target. For NO_TRADE, set entry/stopLoss/tp1/tp2 to null and explain what you'd need to see. Never invent price levels you cannot justify from the image.`;
+Rules for prices: read the price axis carefully. Stop losses go beyond structure (swing high/low), not at arbitrary distances. TP1 must offer at least 1.5R (reward at least 1.5x the entry-to-stop distance) or the trade is not worth taking — answer NO_TRADE instead. TP2 is an extended target. For NO_TRADE, set entry/stopLoss/tp1/tp2 to null and explain what you'd need to see. Never invent price levels you cannot justify from the image.`;
 
-  /* Downscale + JPEG-encode an image File/Blob for the API. */
+  /* Downscale + JPEG-encode an image File/Blob for the API. Browser-only. */
   function prepareImage(fileOrBlob) {
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(fileOrBlob);
@@ -65,6 +76,13 @@ Rules for prices: read the price axis carefully. Stop losses go beyond structure
     throw new Error('Incomplete JSON in model response.');
   }
 
+  /* Reward:risk to TP1, or null when prices are missing. */
+  function rewardRisk(s) {
+    if (s.entry === null || s.stopLoss === null || s.tp1 === null) return null;
+    const risk = Math.abs(s.entry - s.stopLoss);
+    return risk > 0 ? Math.abs(s.tp1 - s.entry) / risk : null;
+  }
+
   function validateSignal(s) {
     if (!s || !['LONG', 'SHORT', 'NO_TRADE'].includes(s.signal)) {
       throw new Error('Model returned an unrecognized signal.');
@@ -81,6 +99,14 @@ Rules for prices: read the price axis carefully. Stop losses go beyond structure
     // A long's stop must be below entry; a short's above. Otherwise don't trust the read.
     if (s.signal === 'LONG' && s.stopLoss >= s.entry) s.signal = 'NO_TRADE';
     if (s.signal === 'SHORT' && s.stopLoss <= s.entry) s.signal = 'NO_TRADE';
+    if (s.signal !== 'NO_TRADE') {
+      const rr = rewardRisk(s);
+      s.rr = rr;
+      if (rr !== null && rr < MIN_RR) {
+        s.signal = 'NO_TRADE';
+        s.risks = (s.risks || '') + ' (Downgraded to NO_TRADE: TP1 offers only ' + rr.toFixed(1) + 'R — under the ' + MIN_RR + 'R floor, the math loses even with a decent win rate.)';
+      }
+    }
     return s;
   }
 
@@ -102,22 +128,38 @@ Rules for prices: read the price axis carefully. Stop losses go beyond structure
   };
 
   /*
-   * Analyze a chart. Returns the validated signal object.
-   * accountContext is prose describing plan state (buffer, consistency, target)
-   * so the model can lean NO_TRADE when the account cannot afford a loss.
+   * Analyze one or more charts of the same instrument.
+   * charts: [{ blob, timeframe }] (max 3) — when more than one, order them
+   * however; the labels tell the model which is which.
+   * declaredTimeframe/style: the trader's entry timeframe and trading style.
+   * accountContext: prose describing plan state so the model can lean
+   * NO_TRADE when the account cannot afford a loss.
    */
-  async function analyze({ apiKey, model, imageBlob, instrument, accountContext }) {
+  async function analyze({ apiKey, model, charts, instrument, declaredTimeframe, style, accountContext }) {
     if (new URLSearchParams(location.search).get('mock') === '1' || window.__TB_MOCK__) {
       await new Promise(r => setTimeout(r, 600));
       return validateSignal(JSON.parse(JSON.stringify(window.__TB_MOCK_SIGNAL__ || MOCK_RESPONSE)));
     }
     if (!apiKey) throw new Error('Add your Claude API key in Settings first.');
-    const img = await prepareImage(imageBlob);
-    const userText =
-      'Instrument: ' + instrument.symbol + ' (' + instrument.label + '), tick size ' + instrument.tickSize +
-      ', $' + instrument.tickValue.toFixed(2) + ' per tick per contract.\n' +
-      'Account context: ' + accountContext + '\n' +
-      'Analyze this chart and respond with the JSON object only.';
+    const list = (charts || []).slice(0, MAX_CHARTS);
+    if (!list.length) throw new Error('Add a chart screenshot first.');
+
+    const content = [];
+    for (let i = 0; i < list.length; i++) {
+      const img = await prepareImage(list[i].blob);
+      if (list.length > 1) {
+        content.push({ type: 'text', text: 'Chart ' + (i + 1) + ' of ' + list.length + ' — trader tagged it as timeframe: ' + (list[i].timeframe || 'untagged') + '.' });
+      }
+      content.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
+    }
+    content.push({
+      type: 'text',
+      text: 'Instrument: ' + instrument.symbol + ' (' + instrument.label + '), tick size ' + instrument.tickSize +
+        ', $' + instrument.tickValue.toFixed(2) + ' per tick per contract.\n' +
+        'Trader\'s entry timeframe: ' + (declaredTimeframe || 'not sure') + '. Trading style: ' + (style || 'day trade') + '.\n' +
+        'Account context: ' + accountContext + '\n' +
+        'Analyze and respond with the JSON object only.',
+    });
 
     const res = await fetch(API_URL, {
       method: 'POST',
@@ -131,13 +173,7 @@ Rules for prices: read the price axis carefully. Stop losses go beyond structure
         model: model || 'claude-sonnet-5',
         max_tokens: 1200,
         system: SYSTEM_PROMPT,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } },
-            { type: 'text', text: userText },
-          ],
-        }],
+        messages: [{ role: 'user', content }],
       }),
     });
 
@@ -148,5 +184,5 @@ Rules for prices: read the price axis carefully. Stop losses go beyond structure
     return validateSignal(extractJSON(text));
   }
 
-  return { analyze, prepareImage };
-})();
+  return { analyze, prepareImage, validateSignal, extractJSON, rewardRisk, MIN_RR, MAX_CHARTS };
+});

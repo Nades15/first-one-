@@ -77,13 +77,18 @@ window.TBJournal = (function () {
     return txt;
   }
 
-  function logTrade({ instrument, dir, contracts, entry, exit, pnl, fromSignal, notes }) {
+  function logTrade({ instrument, dir, contracts, entry, exit, pnl, fromSignal, signalId, sigConfidence, sigTimeframe, notes }) {
     const s = TBStore.load();
     s.trades.push({
       id: TBStore.uid(), date: TBStore.todayISO(),
       instrument, dir, contracts: Number(contracts) || 0,
       entry: Number(entry) || null, exit: Number(exit) || null,
       pnl: Number(pnl) || 0, fromSignal: !!fromSignal, notes: notes || '',
+      // snapshot signal metadata on the trade so accuracy stats survive the
+      // signals list being capped at 20 entries
+      signalId: signalId || null,
+      sigConfidence: sigConfidence != null ? Number(sigConfidence) : null,
+      sigTimeframe: sigTimeframe || null,
     });
     s.account.balance = Math.round((s.account.balance + (Number(pnl) || 0)) * 100) / 100;
     TBStore.save();
@@ -145,15 +150,53 @@ window.TBJournal = (function () {
     };
   }
 
+  /*
+   * How the AI's signals are actually performing, from signal-linked trades
+   * with a recorded P&L. Buckets by the signal's confidence and timeframe.
+   */
+  function aiStats() {
+    const s = TBStore.load();
+    const linked = s.trades.filter(t => t.fromSignal && t.pnl !== 0);
+    const rate = a => a.length ? a.filter(t => t.pnl > 0).length / a.length : null;
+    const byBucket = (label, filter) => {
+      const g = linked.filter(filter);
+      return { label, n: g.length, winRate: rate(g) };
+    };
+    const tfGroups = {};
+    for (const t of linked) {
+      const tf = t.sigTimeframe || 'unknown';
+      (tfGroups[tf] = tfGroups[tf] || []).push(t);
+    }
+    return {
+      n: linked.length,
+      winRate: rate(linked),
+      netPnl: linked.reduce((a, t) => a + t.pnl, 0),
+      byConfidence: [
+        byBucket('80%+', t => t.sigConfidence >= 80),
+        byBucket('70–79%', t => t.sigConfidence >= 70 && t.sigConfidence < 80),
+        byBucket('<70%', t => t.sigConfidence != null && t.sigConfidence < 70),
+      ],
+      byTimeframe: Object.keys(tfGroups).map(tf => ({ label: tf, n: tfGroups[tf].length, winRate: rate(tfGroups[tf]) })),
+    };
+  }
+
+  /* Outcome of the trade linked to a signal: 'win' | 'loss' | null. */
+  function signalOutcome(signalId) {
+    const t = TBStore.load().trades.find(tr => tr.signalId === signalId && tr.pnl !== 0);
+    return t ? (t.pnl > 0 ? 'win' : 'loss') : null;
+  }
+
   function saveSignal(sig, instrumentSymbol, model) {
     const s = TBStore.load();
-    s.signals.unshift({ id: TBStore.uid(), date: new Date().toISOString(), instrument: instrumentSymbol, model, sig });
+    const rec = { id: TBStore.uid(), date: new Date().toISOString(), instrument: instrumentSymbol, model, sig };
+    s.signals.unshift(rec);
     if (s.signals.length > 20) s.signals.length = 20;
     TBStore.save();
+    return rec;
   }
 
   return {
     plan, snapshot, accountContextText, dayPnls, startOfDayBalance, todayPnl,
-    logTrade, deleteTrade, setBalance, endDay, undoEndDay, stats, saveSignal, tradesToday,
+    logTrade, deleteTrade, setBalance, endDay, undoEndDay, stats, aiStats, signalOutcome, saveSignal, tradesToday,
   };
 })();
