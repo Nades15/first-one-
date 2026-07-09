@@ -140,6 +140,36 @@ window.TBConfig = (function () {
     { id: 'swing', label: 'Swing (hours to days)' },
   ];
 
+  /*
+   * Selectivity presets: how high the bar for a signal sits.
+   * minConfidence gates what renders as a trade; rrFloor is the reward:risk
+   * below which a signal is downgraded to NO_TRADE; promptBias swaps the
+   * strictness language in the analyzer's system prompt.
+   */
+  const SELECTIVITY = {
+    strict: {
+      id: 'strict',
+      label: 'Strict — A+ setups only',
+      minConfidence: 70,
+      rrFloor: 1.5,
+      blurb: 'Fires rarely. Best when your buffer is thin or you only want obvious trades.',
+    },
+    balanced: {
+      id: 'balanced',
+      label: 'Balanced — solid setups',
+      minConfidence: 62,
+      rrFloor: 1.2,
+      blurb: 'The default. Clear setups pass, marginal ones get filtered.',
+    },
+    opportunistic: {
+      id: 'opportunistic',
+      label: 'Opportunistic — B-grade setups too',
+      minConfidence: 55,
+      rrFloor: 1.0,
+      blurb: 'More signals, lower average quality. Size smaller and watch your accuracy stats.',
+    },
+  };
+
   const MODELS = [
     { id: 'claude-sonnet-5',          label: 'Claude Sonnet 5 (recommended)' },
     { id: 'claude-fable-5',           label: 'Claude Fable 5 (most capable, pricier)' },
@@ -152,5 +182,5 @@ window.TBConfig = (function () {
     return Object.assign({}, base, overrides || {});
   }
 
-  return { PLANS, INSTRUMENTS, MODELS, TIMEFRAMES, STYLES, planWithOverrides };
+  return { PLANS, INSTRUMENTS, MODELS, TIMEFRAMES, STYLES, SELECTIVITY, planWithOverrides };
 })();

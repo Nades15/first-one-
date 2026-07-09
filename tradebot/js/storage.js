@@ -15,7 +15,9 @@ window.TBStore = (function () {
         defaultInstrument: 'MNQ',
         defaultTimeframe: '5m',
         defaultStyle: 'day',
-        minConfidence: 65,        // signals below this render as NO TRADE
+        minConfidence: 62,        // signals below this render as NO TRADE
+        selectivity: 'balanced',  // strict | balanced | opportunistic
+        rrFloor: 1.2,             // reward:risk to TP1 below which signals are downgraded
         onboarded: false,
       },
       account: {
