@@ -190,6 +190,12 @@ input, select {
 .outcome-win { color: var(--good); font-size: 0.78rem; font-weight: 700; }
 .outcome-loss { color: var(--bad); font-size: 0.78rem; font-weight: 700; }
 
+.watch-box {
+  background: var(--page); border: 1px dashed var(--border); border-radius: 10px;
+  padding: 10px 12px; font-size: 0.86rem;
+}
+.watch-box .sig-mini { margin: 0 2px; }
+
 .sig-mini { font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
 .sig-mini.sig-long { background: var(--long-bg); color: var(--good); }
 .sig-mini.sig-short { background: var(--short-bg); color: var(--bad); }

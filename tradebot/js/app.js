@@ -172,6 +172,8 @@
         instrument,
         declaredTimeframe: timeframe,
         style: (TBConfig.STYLES.find(st => st.id === style) || {}).label || style,
+        selectivity: s.settings.selectivity,
+        rrFloor: s.settings.rrFloor,
         accountContext: TBJournal.accountContextText(),
       });
       const rec = TBJournal.saveSignal(sig, symbol, s.settings.model);
@@ -211,12 +213,18 @@
         '<span class="sig-conf">' + sig.confidence + '% confidence · ' + esc(sig.timeframe || '') + '</span></div>';
 
     if (gated) {
-      html += '<div class="banner banner-warn">Below your ' + s.settings.minConfidence + '% confidence threshold — treated as NO TRADE. The read is shown for information only.</div>' +
-        '<p class="sig-text">The model leaned <strong>' + sig.signal + '</strong> at ' + sig.confidence + '%: ' + esc(sig.rationale) + '</p>' +
+      html += '<div class="banner banner-warn">Filtered by your rules: the model leaned <strong>' + sig.signal + '</strong> at ' + sig.confidence + '%, below your ' + s.settings.minConfidence + '% confidence threshold — treated as NO TRADE.</div>' +
+        '<p class="sig-text">' + esc(sig.rationale) + '</p>' +
         '<p class="sig-sub"><strong>Invalidation:</strong> ' + esc(sig.invalidation) + '</p>' +
+        watchBlockHTML(sig) +
         '<p class="sig-sub good-note">Low-conviction trades are where evaluations bleed out. Wait for a cleaner one.</p>';
     } else if (sig.signal === 'NO_TRADE') {
-      html += '<p class="sig-text">' + esc(sig.rationale) + '</p>' +
+      html +=
+        (sig.downgradeReason
+          ? '<div class="banner banner-warn">Filtered by your rules: the model leaned <strong>' + esc(sig.originalSignal || '') + '</strong> at ' + sig.confidence + '%, but ' + esc(sig.downgradeReason) + '.</div>'
+          : '') +
+        '<p class="sig-text">' + esc(sig.rationale) + '</p>' +
+        watchBlockHTML(sig) +
         (sig.risks ? '<p class="sig-sub"><strong>Notes:</strong> ' + esc(sig.risks) + '</p>' : '') +
         '<p class="sig-sub good-note">Standing aside costs $0. That is how evaluations get passed.</p>';
     } else {
@@ -263,6 +271,14 @@
       lastResult = null; // signal consumed — Analyze shows recent reads again
       tab = 'journal'; render();
     };
+  }
+
+  function watchBlockHTML(sig) {
+    if (!sig.watchFor) return '';
+    return '<div class="watch-box">👀 <strong>Watching for' +
+      (sig.watchDirection ? ' <span class="sig-mini ' + (sig.watchDirection === 'LONG' ? 'sig-long' : 'sig-short') + '">' + sig.watchDirection + '</span>' : '') +
+      (sig.watchTrigger !== null && sig.watchTrigger !== undefined ? ' near ' + fmtPx(sig.watchTrigger) : '') +
+      ':</strong> ' + esc(sig.watchFor) + '</div>';
   }
 
   function recentSignalsHTML() {
@@ -442,11 +458,19 @@
         '</div>' +
         '<p class="fineprint">⚠ Presets reflect MFFU\'s published rules as of mid-2026 and can drift — always verify against your MFFU dashboard, and edit these numbers to match. Changing the preset resets your edits.</p>' +
       '</div>' +
+      '<div class="card form-card"><div class="card-head"><h2>Signal selectivity</h2></div>' +
+        '<label>How high should the bar sit?<select id="st-sel">' + Object.values(TBConfig.SELECTIVITY).map(lv =>
+          '<option value="' + lv.id + '"' + (lv.id === s.settings.selectivity ? ' selected' : '') + '>' + lv.label + '</option>').join('') + '</select></label>' +
+        '<p class="fineprint" id="st-sel-blurb">' + esc((TBConfig.SELECTIVITY[s.settings.selectivity] || TBConfig.SELECTIVITY.balanced).blurb) + '</p>' +
+        '<div class="form-grid">' +
+        '<label>Min confidence (%)<input id="st-conf" type="number" min="0" max="100" value="' + s.settings.minConfidence + '"></label>' +
+        '<label>R:R floor to TP1<input id="st-rr" type="number" min="0" step="0.1" value="' + s.settings.rrFloor + '"></label>' +
+        '</div>' +
+        '<p class="fineprint">The dial sets these two; fine-tune them here (changing the dial resets them). Signals below either bar render as NO TRADE, with the model\'s original lean shown so you can see what got filtered.</p>' +
+      '</div>' +
       '<div class="card form-card"><div class="card-head"><h2>Risk</h2></div>' +
         '<label>Risk per trade (% of remaining buffer)<input id="st-risk" type="number" min="1" max="100" value="' + s.settings.riskPct + '"></label>' +
         '<p class="fineprint">At 25% you survive at least 4 straight max-size losses. Raising this is how evaluations die.</p>' +
-        '<label>Minimum signal confidence (%)<input id="st-conf" type="number" min="0" max="100" value="' + s.settings.minConfidence + '"></label>' +
-        '<p class="fineprint">Signals below this render as NO TRADE. Raise it if the AI accuracy card shows low-confidence reads aren\'t hitting.</p>' +
       '</div>' +
       '<div class="card form-card"><div class="card-head"><h2>Danger zone</h2></div>' +
         '<button class="btn" id="st-reset-acct">Reset account tracking (keep settings)</button>' +
@@ -454,6 +478,12 @@
       '</div>' +
       '<button class="btn btn-primary btn-lg" id="st-save">Save settings</button>';
 
+    $('#st-sel').onchange = () => {
+      const lv = TBConfig.SELECTIVITY[$('#st-sel').value];
+      $('#st-conf').value = lv.minConfidence;
+      $('#st-rr').value = lv.rrFloor;
+      $('#st-sel-blurb').textContent = lv.blurb;
+    };
     $('#st-plan').onchange = () => {
       const sNow = TBStore.load();
       sNow.settings.planId = $('#st-plan').value;
@@ -469,7 +499,9 @@
       sNow.settings.apiKey = $('#st-key').value.trim();
       sNow.settings.model = $('#st-model').value;
       sNow.settings.riskPct = Math.max(1, Math.min(100, parseFloat($('#st-risk').value) || 25));
+      sNow.settings.selectivity = $('#st-sel').value;
       sNow.settings.minConfidence = Math.max(0, Math.min(100, parseFloat($('#st-conf').value) || 0));
+      sNow.settings.rrFloor = Math.max(0, parseFloat($('#st-rr').value) || 0);
       const base = TBConfig.PLANS[sNow.settings.planId];
       const overrides = {};
       document.querySelectorAll('[data-rule]').forEach(inp => {

@@ -15,7 +15,24 @@
   const MIN_RR = 1.2;    // signals with TP1 below this R:R are downgraded to NO_TRADE
   const MAX_CHARTS = 3;
 
-  const SYSTEM_PROMPT = `You are a disciplined futures trading analyst helping a trader pass a MyFundedFutures prop-firm evaluation. You will be shown one to three chart screenshots of the same instrument. Your #1 priority is capital preservation: the trader is destroyed by drawdown breaches, not by missed trades. When the picture is unclear, mixed, mid-range, or missing key information, answer NO_TRADE. A good evaluation is passed with a few clean, obvious setups — not by forcing trades.
+  const BIAS = {
+    strict: {
+      stance: 'Your #1 priority is capital preservation: the trader is destroyed by drawdown breaches, not by missed trades. Only flag A+ setups — the kind you would show a student as a textbook example. When the picture is anything less than clean and obvious, answer NO_TRADE; below 65 confidence should always be NO_TRADE.',
+      rr: 'TP1 must offer at least 1.5R (reward at least 1.5x the entry-to-stop distance) or the trade is not worth taking — answer NO_TRADE instead.',
+    },
+    balanced: {
+      stance: 'Your #1 priority is capital preservation: the trader is destroyed by drawdown breaches, not by missed trades. When the picture is unclear, mixed, mid-range, or missing key information, answer NO_TRADE; below 60 confidence should be NO_TRADE. A good evaluation is passed with a few clean setups — not by forcing trades.',
+      rr: 'TP1 must offer at least 1.5R (reward at least 1.5x the entry-to-stop distance) or the trade is not worth taking — answer NO_TRADE instead.',
+    },
+    opportunistic: {
+      stance: 'Balance capital preservation with opportunity: flag tradeable setups even when they are B-grade rather than perfect, and be scrupulously honest in the confidence number so the trader can size accordingly. Answer NO_TRADE only when there is genuinely nothing — a plain range midpoint, contradictory structure, or an unreadable chart.',
+      rr: 'TP1 should offer at least 1R (reward at least equal to the entry-to-stop distance); prefer more, and say so in the rationale when the reward is thin.',
+    },
+  };
+
+  function systemPrompt(selectivity) {
+    const b = BIAS[selectivity] || BIAS.balanced;
+    return `You are a disciplined futures trading analyst helping a trader pass a MyFundedFutures prop-firm evaluation. You will be shown one to three chart screenshots of the same instrument. ${b.stance}
 
 If multiple charts are provided, they are labeled with their timeframes: do top-down analysis. Establish directional bias on the higher timeframe, and only signal a trade when the lower (entry) timeframe shows a trigger IN THE SAME DIRECTION as that bias. If the timeframes disagree, answer NO_TRADE and say which one is fighting the other.
 
@@ -26,7 +43,7 @@ Analyze only what is visible: trend structure, support/resistance, candlestick b
 Respond with ONLY a JSON object, no markdown fences, no prose before or after:
 {
   "signal": "LONG" | "SHORT" | "NO_TRADE",
-  "confidence": <0-100, be honest; below 60 should be NO_TRADE>,
+  "confidence": <0-100, be honest>,
   "timeframe": "<entry chart timeframe if visible, else 'unknown'>",
   "entry": <suggested entry price, or null>,
   "stopLoss": <price where the idea is wrong, or null>,
@@ -34,10 +51,14 @@ Respond with ONLY a JSON object, no markdown fences, no prose before or after:
   "tp2": <second target price, or null>,
   "rationale": "<2-4 sentences: the setup and why; mention the higher-timeframe bias if multiple charts>",
   "invalidation": "<what would make this trade wrong before entry>",
-  "risks": "<what you cannot see or what could go wrong>"
+  "risks": "<what you cannot see or what could go wrong>",
+  "watchFor": "<REQUIRED for NO_TRADE: the specific structure, at a specific level, that would turn this into a trade — e.g. 'a 5m close above 2415, then a retest holding 2412 → LONG'. null for LONG/SHORT>",
+  "watchDirection": "LONG" | "SHORT" | null,
+  "watchTrigger": <the price level being watched, or null>
 }
 
-Rules for prices: read the price axis carefully. Stop losses go beyond structure (swing high/low), not at arbitrary distances. TP1 must offer at least 1.5R (reward at least 1.5x the entry-to-stop distance) or the trade is not worth taking — answer NO_TRADE instead. TP2 is an extended target. For NO_TRADE, set entry/stopLoss/tp1/tp2 to null and explain what you'd need to see. Never invent price levels you cannot justify from the image.`;
+Rules for prices: read the price axis carefully. Stop losses go beyond structure (swing high/low), not at arbitrary distances. ${b.rr} TP2 is an extended target. For NO_TRADE, set entry/stopLoss/tp1/tp2 to null and always fill watchFor with a concrete, actionable plan. Never invent price levels you cannot justify from the image.`;
+  }
 
   /* Downscale + JPEG-encode an image File/Blob for the API. Browser-only. */
   function prepareImage(fileOrBlob) {
@@ -83,28 +104,37 @@ Rules for prices: read the price axis carefully. Stop losses go beyond structure
     return risk > 0 ? Math.abs(s.tp1 - s.entry) / risk : null;
   }
 
-  function validateSignal(s) {
+  /*
+   * Validate & sanitize the model's signal. Downgrades set s.downgradeReason
+   * and keep the model's lean in s.originalSignal so the UI can distinguish
+   * "your rules filtered this" from "the model saw nothing".
+   */
+  function validateSignal(s, rrFloor) {
+    const floor = (rrFloor === undefined || rrFloor === null) ? MIN_RR : Number(rrFloor);
     if (!s || !['LONG', 'SHORT', 'NO_TRADE'].includes(s.signal)) {
       throw new Error('Model returned an unrecognized signal.');
     }
     s.confidence = Math.max(0, Math.min(100, Number(s.confidence) || 0));
-    for (const k of ['entry', 'stopLoss', 'tp1', 'tp2']) {
+    for (const k of ['entry', 'stopLoss', 'tp1', 'tp2', 'watchTrigger']) {
       s[k] = (s[k] === null || s[k] === undefined || s[k] === '') ? null : Number(s[k]);
       if (s[k] !== null && !isFinite(s[k])) s[k] = null;
     }
-    if (s.signal !== 'NO_TRADE' && (s.entry === null || s.stopLoss === null)) {
+    const downgrade = reason => {
+      s.originalSignal = s.signal;
       s.signal = 'NO_TRADE';
-      s.risks = (s.risks || '') + ' (Downgraded to NO_TRADE: the model did not provide both an entry and a stop.)';
+      s.downgradeReason = reason;
+    };
+    if (s.signal !== 'NO_TRADE' && (s.entry === null || s.stopLoss === null)) {
+      downgrade('the model did not provide both an entry and a stop, so there is no defined risk');
     }
     // A long's stop must be below entry; a short's above. Otherwise don't trust the read.
-    if (s.signal === 'LONG' && s.stopLoss >= s.entry) s.signal = 'NO_TRADE';
-    if (s.signal === 'SHORT' && s.stopLoss <= s.entry) s.signal = 'NO_TRADE';
+    if (s.signal === 'LONG' && s.stopLoss >= s.entry) downgrade('the stop was on the wrong side of the entry — the price read is not trustworthy');
+    if (s.signal === 'SHORT' && s.stopLoss <= s.entry) downgrade('the stop was on the wrong side of the entry — the price read is not trustworthy');
     if (s.signal !== 'NO_TRADE') {
       const rr = rewardRisk(s);
       s.rr = rr;
-      if (rr !== null && rr < MIN_RR) {
-        s.signal = 'NO_TRADE';
-        s.risks = (s.risks || '') + ' (Downgraded to NO_TRADE: TP1 offers only ' + rr.toFixed(1) + 'R — under the ' + MIN_RR + 'R floor, the math loses even with a decent win rate.)';
+      if (rr !== null && rr < floor) {
+        downgrade('TP1 offers only ' + rr.toFixed(1) + 'R — under your ' + floor + 'R floor, the math loses even with a decent win rate');
       }
     }
     return s;
@@ -135,10 +165,10 @@ Rules for prices: read the price axis carefully. Stop losses go beyond structure
    * accountContext: prose describing plan state so the model can lean
    * NO_TRADE when the account cannot afford a loss.
    */
-  async function analyze({ apiKey, model, charts, instrument, declaredTimeframe, style, accountContext }) {
+  async function analyze({ apiKey, model, charts, instrument, declaredTimeframe, style, selectivity, rrFloor, accountContext }) {
     if (new URLSearchParams(location.search).get('mock') === '1' || window.__TB_MOCK__) {
       await new Promise(r => setTimeout(r, 600));
-      return validateSignal(JSON.parse(JSON.stringify(window.__TB_MOCK_SIGNAL__ || MOCK_RESPONSE)));
+      return validateSignal(JSON.parse(JSON.stringify(window.__TB_MOCK_SIGNAL__ || MOCK_RESPONSE)), rrFloor);
     }
     if (!apiKey) throw new Error('Add your Claude API key in Settings first.');
     const list = (charts || []).slice(0, MAX_CHARTS);
@@ -172,7 +202,7 @@ Rules for prices: read the price axis carefully. Stop losses go beyond structure
       body: JSON.stringify({
         model: model || 'claude-sonnet-5',
         max_tokens: 1200,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt(selectivity),
         messages: [{ role: 'user', content }],
       }),
     });
@@ -181,8 +211,8 @@ Rules for prices: read the price axis carefully. Stop losses go beyond structure
     if (!res.ok) throw new Error(friendlyError(res.status, bodyText));
     const data = JSON.parse(bodyText);
     const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-    return validateSignal(extractJSON(text));
+    return validateSignal(extractJSON(text), rrFloor);
   }
 
-  return { analyze, prepareImage, validateSignal, extractJSON, rewardRisk, MIN_RR, MAX_CHARTS };
+  return { analyze, prepareImage, validateSignal, extractJSON, rewardRisk, systemPrompt, MIN_RR, MAX_CHARTS };
 });

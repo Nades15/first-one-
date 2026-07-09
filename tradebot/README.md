@@ -14,8 +14,14 @@ drawdown so a single trade can never breach your account.
   vision model returns a signal with entry / SL / TP1 / TP2, its confidence, the reasoning,
   and what would invalidate the idea. The prompt is deliberately biased toward **NO TRADE**
   — unclear charts get a pass, because standing aside costs nothing and breaches cost
-  everything. Signals offering under 1.2R to TP1 are auto-downgraded to NO TRADE, and a
-  configurable **confidence threshold** (default 65%) gates low-conviction reads.
+  everything. A **selectivity dial** (Strict / Balanced / Opportunistic) sets how high the
+  bar sits — it tunes the prompt's bias, the minimum confidence, and the R:R floor below
+  which signals are downgraded. When your rules veto a trade the model wanted, the card
+  says so explicitly ("Filtered by your rules: the model leaned LONG at 72%, but…") so a
+  NO TRADE from chop and a NO TRADE from your filters never look the same.
+- **👀 Watch plans** — every NO TRADE includes what would change the answer: the specific
+  structure, direction, and trigger level the AI is watching for. A pass is a plan, not a
+  shrug.
 - **🛡️ Account** — a live model of your MFFU account: balance, the EOD-trailing Max Loss
   Limit (with the $25,100 lock), buffer to breach, profit-target progress, today's P&L,
   trading days, and the consistency meter on plans that have one. An **End my day** button
