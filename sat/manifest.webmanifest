@@ -1,0 +1,12 @@
+{
+  "name": "Summit — adaptive SAT practice",
+  "short_name": "Summit",
+  "description": "Real College Board SAT questions that adapt to your level as you answer.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f9f9f7",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -1,9 +1,12 @@
-> This repo hosts three small web apps:
+> This repo hosts four small web apps:
 > **🧠 Lumen** (below), **📈 [MFFU Trade Copilot](tradebot/README.md)** — an AI
 > chart-analysis assistant + rules guardian for MyFundedFutures 25k evaluations,
-> living in [`tradebot/`](tradebot/) — and **🎯 [Scout](scanner/README.md)** — an
+> living in [`tradebot/`](tradebot/) — **🎯 [Scout](scanner/README.md)** — an
 > on-demand Polymarket/Kalshi scanner that finds bets priced around 75% to hit,
-> with an optional AI second opinion, living in [`scanner/`](scanner/).
+> with an optional AI second opinion, living in [`scanner/`](scanner/) — and
+> **⛰️ [Summit](sat/README.md)** — adaptive SAT practice built on real College
+> Board questions, with a live score estimate and a freemium daily cap, living
+> in [`sat/`](sat/).
 
 # 🧠 Lumen — daily mind training
 
