@@ -1,0 +1,335 @@
+{
+  "meta": {
+    "source": "sample",
+    "sample": true,
+    "note": "24 SAMPLE questions written for offline demos (?mock=1). These are NOT College Board questions — download the official bank in Settings or run tools/fetch-bank.mjs."
+  },
+  "questions": [
+    {
+      "id": "sample-rw-ini-1", "section": "rw", "domain": "INI", "skill": "CID",
+      "skillDesc": "Central Ideas and Details", "difficulty": "E", "band": 2, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>Chile's Atacama Desert is often called the driest place on Earth: several of its weather stations have never recorded rain. Yet in the rare years when storms do arrive, dormant seeds burst into bloom, briefly carpeting the desert floor with flowers.</p><p>Which choice best states the main idea of the text?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>The Atacama Desert receives more rain than most people believe.</p>" },
+        { "letter": "B", "html": "<p>Although the Atacama Desert is extremely dry, rare rains can trigger sudden blooms there.</p>" },
+        { "letter": "C", "html": "<p>Weather stations in the Atacama Desert are unreliable.</p>" },
+        { "letter": "D", "html": "<p>Desert flowers cannot survive without frequent storms.</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Choice B is correct: the text establishes the desert's extreme dryness, then contrasts it with the blooms that follow rare storms. The other choices contradict or go beyond the text.</p>"
+    },
+    {
+      "id": "sample-rw-ini-2", "section": "rw", "domain": "INI", "skill": "INF",
+      "skillDesc": "Inferences", "difficulty": "M", "band": 4, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>A study of city parks found that visitors who walked tree-lined paths reported lower stress than those who walked equally long paths beside roads — even when both groups covered the same distance at the same pace. The researchers therefore concluded that ______</p><p>Which choice most logically completes the text?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>the stress reduction was caused by exercise alone.</p>" },
+        { "letter": "B", "html": "<p>walking near roads is more strenuous than walking among trees.</p>" },
+        { "letter": "C", "html": "<p>something about the walk's surroundings, not just the walking itself, affected stress.</p>" },
+        { "letter": "D", "html": "<p>park visitors dislike roads.</p>" }
+      ],
+      "correct": ["C"],
+      "rationale": "<p>Choice C is correct: distance and pace were held constant, so the differing results point to the surroundings. Choice A is contradicted by the design; B and D aren't supported.</p>"
+    },
+    {
+      "id": "sample-rw-ini-3", "section": "rw", "domain": "INI", "skill": "COE",
+      "skillDesc": "Command of Evidence", "difficulty": "H", "band": 6, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>A biologist claims that reef fish return to the exact reef where they hatched, navigating by smell. Which finding, if true, would most directly support the biologist's claim?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>Larval fish raised in water scented with their home reef swim toward that scent in a flume, while fish raised in unscented water show no preference.</p>" },
+        { "letter": "B", "html": "<p>Adult reef fish are frequently observed far from any reef.</p>" },
+        { "letter": "C", "html": "<p>Reef fish populations decline when water temperatures rise.</p>" },
+        { "letter": "D", "html": "<p>Many reef fish species have poor eyesight.</p>" }
+      ],
+      "correct": ["A"],
+      "rationale": "<p>Choice A is correct: it ties the homing behavior directly to smell with a controlled comparison. B and C are unrelated to navigation by smell; D at best rules out vision without supporting smell.</p>"
+    },
+    {
+      "id": "sample-rw-cas-1", "section": "rw", "domain": "CAS", "skill": "WIC",
+      "skillDesc": "Words in Context", "difficulty": "E", "band": 2, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>The engineer's solution was entirely <u>novel</u>: no bridge had ever been anchored that way before.</p><p>As used in the text, what does the word \"novel\" most nearly mean?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>Fictional</p>" },
+        { "letter": "B", "html": "<p>New</p>" },
+        { "letter": "C", "html": "<p>Complicated</p>" },
+        { "letter": "D", "html": "<p>Expensive</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Choice B is correct: \"no bridge had ever been anchored that way before\" signals that \"novel\" means new or unprecedented.</p>"
+    },
+    {
+      "id": "sample-rw-cas-2", "section": "rw", "domain": "CAS", "skill": "TSP",
+      "skillDesc": "Text Structure and Purpose", "difficulty": "M", "band": 4, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>Most planetarium shows present the night sky as seen from Earth. The new show at the Hayden Planetarium, however, begins on Earth only to pull away — carrying viewers past the planets, out of the galaxy, and to the edge of the observable universe before returning home.</p><p>Which choice best describes the function of the first sentence?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>It establishes a convention that the rest of the text contrasts with the new show.</p>" },
+        { "letter": "B", "html": "<p>It argues that traditional planetarium shows are superior.</p>" },
+        { "letter": "C", "html": "<p>It summarizes the new show's itinerary.</p>" },
+        { "letter": "D", "html": "<p>It explains how planetariums are funded.</p>" }
+      ],
+      "correct": ["A"],
+      "rationale": "<p>Choice A is correct: the first sentence describes what most shows do so that \"however\" can introduce how the new show departs from that convention.</p>"
+    },
+    {
+      "id": "sample-rw-cas-3", "section": "rw", "domain": "CAS", "skill": "CTC",
+      "skillDesc": "Cross-Text Connections", "difficulty": "H", "band": 6, "type": "mcq",
+      "stimulus": "<p><strong>Text 1:</strong> Some archaeologists argue that cave paintings were primarily religious, created as part of rituals held deep underground.</p><p><strong>Text 2:</strong> Recent surveys show many paintings sit near cave entrances, in spaces used for everyday shelter — suggesting art-making was woven into daily life rather than reserved for ceremony.</p>",
+      "stem": "<p>Based on the texts, how would the author of Text 2 most likely respond to the argument in Text 1?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>By agreeing that ritual was the sole purpose of cave painting</p>" },
+        { "letter": "B", "html": "<p>By noting that the paintings' locations complicate a purely ritual explanation</p>" },
+        { "letter": "C", "html": "<p>By denying that any cave paintings exist near entrances</p>" },
+        { "letter": "D", "html": "<p>By arguing that the paintings are older than previously thought</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Choice B is correct: Text 2's evidence — paintings in everyday spaces near entrances — challenges the deep-underground ritual account without denying that ritual played any role.</p>"
+    },
+    {
+      "id": "sample-rw-eoi-1", "section": "rw", "domain": "EOI", "skill": "TRA",
+      "skillDesc": "Transitions", "difficulty": "E", "band": 2, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>The team expected the alloy to weaken at high temperatures. ______ it grew stronger, a result no existing model predicted.</p><p>Which choice completes the text with the most logical transition?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>Instead,</p>" },
+        { "letter": "B", "html": "<p>Therefore,</p>" },
+        { "letter": "C", "html": "<p>Similarly,</p>" },
+        { "letter": "D", "html": "<p>For example,</p>" }
+      ],
+      "correct": ["A"],
+      "rationale": "<p>Choice A is correct: the result contradicts the expectation, so a contrast transition (\"Instead\") is needed.</p>"
+    },
+    {
+      "id": "sample-rw-eoi-2", "section": "rw", "domain": "EOI", "skill": "TRA",
+      "skillDesc": "Transitions", "difficulty": "M", "band": 4, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>Lichens survive in deserts, on mountaintops, and even inside Antarctic rocks. ______ they are among the first organisms to colonize ground newly exposed by retreating glaciers.</p><p>Which choice completes the text with the most logical transition?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>In contrast,</p>" },
+        { "letter": "B", "html": "<p>Fittingly,</p>" },
+        { "letter": "C", "html": "<p>Nevertheless,</p>" },
+        { "letter": "D", "html": "<p>Meanwhile,</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Choice B is correct: colonizing harsh new ground fits the hardiness just described, so \"Fittingly\" links the ideas. Contrast transitions (A, C) reverse the logic.</p>"
+    },
+    {
+      "id": "sample-rw-eoi-3", "section": "rw", "domain": "EOI", "skill": "SYN",
+      "skillDesc": "Rhetorical Synthesis", "difficulty": "H", "band": 6, "type": "mcq",
+      "stimulus": "<p>While researching a topic, a student has taken the following notes:</p><ul><li>The Great Green Wall is an African-led project begun in 2007.</li><li>Its goal is to restore 100 million hectares of degraded land across the Sahel by 2030.</li><li>As of 2023, roughly 18 million hectares had been restored.</li><li>Restored land supports farming and provides income for local communities.</li></ul>",
+      "stem": "<p>The student wants to emphasize how much work remains to reach the project's goal. Which choice most effectively uses relevant information from the notes to accomplish this goal?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>The Great Green Wall, an African-led project, has restored land that now supports farming.</p>" },
+        { "letter": "B", "html": "<p>Though 18 million hectares have been restored since 2007, that is still less than a fifth of the 100 million hectares targeted by 2030.</p>" },
+        { "letter": "C", "html": "<p>Begun in 2007, the Great Green Wall aims to restore land across the Sahel.</p>" },
+        { "letter": "D", "html": "<p>Restored land provides income for local communities across the Sahel.</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Choice B is correct: it sets the progress (18 million) against the goal (100 million), which is exactly the gap the student wants to emphasize. The other choices omit the comparison.</p>"
+    },
+    {
+      "id": "sample-rw-sec-1", "section": "rw", "domain": "SEC", "skill": "FSS",
+      "skillDesc": "Form, Structure, and Sense", "difficulty": "E", "band": 2, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>Each of the observatory's twin telescopes ______ a mirror more than eight meters across.</p><p>Which choice completes the text so that it conforms to the conventions of Standard English?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>have</p>" },
+        { "letter": "B", "html": "<p>has</p>" },
+        { "letter": "C", "html": "<p>are having</p>" },
+        { "letter": "D", "html": "<p>were having</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Choice B is correct: the subject is \"Each,\" which is singular, so the singular verb \"has\" agrees with it. \"Of the observatory's twin telescopes\" is a prepositional phrase, not the subject.</p>"
+    },
+    {
+      "id": "sample-rw-sec-2", "section": "rw", "domain": "SEC", "skill": "BOU",
+      "skillDesc": "Boundaries", "difficulty": "M", "band": 4, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>Marie Tharp's maps of the Atlantic seafloor revealed a great rift ______ that discovery helped confirm the theory of plate tectonics.</p><p>Which choice completes the text so that it conforms to the conventions of Standard English?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>valley,</p>" },
+        { "letter": "B", "html": "<p>valley</p>" },
+        { "letter": "C", "html": "<p>valley;</p>" },
+        { "letter": "D", "html": "<p>valley, and,</p>" }
+      ],
+      "correct": ["C"],
+      "rationale": "<p>Choice C is correct: two independent clauses meet here, so a semicolon is needed. A comma alone (A) creates a splice; no punctuation (B) creates a run-on.</p>"
+    },
+    {
+      "id": "sample-rw-sec-3", "section": "rw", "domain": "SEC", "skill": "FSS",
+      "skillDesc": "Form, Structure, and Sense", "difficulty": "H", "band": 6, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>______ the marathon's final mile, spectators lined both sides of the course to cheer the runners home.</p><p>Which choice completes the text so that it conforms to the conventions of Standard English?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>Having run</p>" },
+        { "letter": "B", "html": "<p>Along</p>" },
+        { "letter": "C", "html": "<p>Running</p>" },
+        { "letter": "D", "html": "<p>To have run</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Choice B is correct: the spectators line the course \"along\" the final mile. Choices A, C, and D each create a dangling modifier — the spectators are not the ones running.</p>"
+    },
+    {
+      "id": "sample-math-h-1", "section": "math", "domain": "H", "skill": "LE1",
+      "skillDesc": "Linear equations in one variable", "difficulty": "E", "band": 1, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>If 3x + 5 = 20, what is the value of x?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>3</p>" },
+        { "letter": "B", "html": "<p>5</p>" },
+        { "letter": "C", "html": "<p>15</p>" },
+        { "letter": "D", "html": "<p>25/3</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Subtract 5 from both sides: 3x = 15. Divide by 3: x = 5. Choice B is correct.</p>"
+    },
+    {
+      "id": "sample-math-h-2", "section": "math", "domain": "H", "skill": "SYS",
+      "skillDesc": "Systems of two linear equations", "difficulty": "M", "band": 4, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>If x + y = 12 and x − y = 4, what is the value of x?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>4</p>" },
+        { "letter": "B", "html": "<p>6</p>" },
+        { "letter": "C", "html": "<p>8</p>" },
+        { "letter": "D", "html": "<p>16</p>" }
+      ],
+      "correct": ["C"],
+      "rationale": "<p>Adding the equations gives 2x = 16, so x = 8. Choice C is correct.</p>"
+    },
+    {
+      "id": "sample-math-h-3", "section": "math", "domain": "H", "skill": "LF",
+      "skillDesc": "Linear functions", "difficulty": "H", "band": 6, "type": "spr",
+      "stimulus": "",
+      "stem": "<p>The line y = kx − 3 passes through the point (2, 7). What is the value of k?</p>",
+      "options": [],
+      "correct": ["5"],
+      "rationale": "<p>Substitute the point: 7 = 2k − 3, so 2k = 10 and k = 5.</p>"
+    },
+    {
+      "id": "sample-math-p-1", "section": "math", "domain": "P", "skill": "NLF",
+      "skillDesc": "Nonlinear functions", "difficulty": "E", "band": 2, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>The function f is defined by f(x) = x² + 1. What is the value of f(3)?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>7</p>" },
+        { "letter": "B", "html": "<p>9</p>" },
+        { "letter": "C", "html": "<p>10</p>" },
+        { "letter": "D", "html": "<p>16</p>" }
+      ],
+      "correct": ["C"],
+      "rationale": "<p>f(3) = 3² + 1 = 9 + 1 = 10. Choice C is correct.</p>"
+    },
+    {
+      "id": "sample-math-p-2", "section": "math", "domain": "P", "skill": "NLE",
+      "skillDesc": "Nonlinear equations and systems", "difficulty": "M", "band": 5, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>What are the solutions to the equation (x − 3)(x + 5) = 0?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>x = 3 and x = 5</p>" },
+        { "letter": "B", "html": "<p>x = −3 and x = 5</p>" },
+        { "letter": "C", "html": "<p>x = 3 and x = −5</p>" },
+        { "letter": "D", "html": "<p>x = −3 and x = −5</p>" }
+      ],
+      "correct": ["C"],
+      "rationale": "<p>A product is zero when a factor is zero: x − 3 = 0 gives x = 3; x + 5 = 0 gives x = −5. Choice C is correct.</p>"
+    },
+    {
+      "id": "sample-math-p-3", "section": "math", "domain": "P", "skill": "EXP",
+      "skillDesc": "Exponents and radicals", "difficulty": "H", "band": 7, "type": "spr",
+      "stimulus": "",
+      "stem": "<p>If 2<sup>x+1</sup> = 32, what is the value of x?</p>",
+      "options": [],
+      "correct": ["4"],
+      "rationale": "<p>32 = 2⁵, so x + 1 = 5 and x = 4.</p>"
+    },
+    {
+      "id": "sample-math-q-1", "section": "math", "domain": "Q", "skill": "PCT",
+      "skillDesc": "Percentages", "difficulty": "E", "band": 1, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>What is 20% of 250?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>25</p>" },
+        { "letter": "B", "html": "<p>50</p>" },
+        { "letter": "C", "html": "<p>75</p>" },
+        { "letter": "D", "html": "<p>200</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>20% of 250 = 0.20 × 250 = 50. Choice B is correct.</p>"
+    },
+    {
+      "id": "sample-math-q-2", "section": "math", "domain": "Q", "skill": "OVD",
+      "skillDesc": "One-variable data", "difficulty": "M", "band": 4, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>A student's five quiz scores are 70, 80, 80, 90, and 100. Which statement about the data is true?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>The mean is greater than the median.</p>" },
+        { "letter": "B", "html": "<p>The median is greater than the mean.</p>" },
+        { "letter": "C", "html": "<p>The mean and median are equal.</p>" },
+        { "letter": "D", "html": "<p>The median is 85.</p>" }
+      ],
+      "correct": ["A"],
+      "rationale": "<p>The median (middle value) is 80; the mean is 420 ÷ 5 = 84. The mean exceeds the median, so choice A is correct.</p>"
+    },
+    {
+      "id": "sample-math-q-3", "section": "math", "domain": "Q", "skill": "RAT",
+      "skillDesc": "Ratios, rates, and proportions", "difficulty": "H", "band": 6, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>A machine fills 240 bottles in 45 minutes at a constant rate. At this rate, how many bottles does it fill in 2 hours?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>480</p>" },
+        { "letter": "B", "html": "<p>560</p>" },
+        { "letter": "C", "html": "<p>640</p>" },
+        { "letter": "D", "html": "<p>720</p>" }
+      ],
+      "correct": ["C"],
+      "rationale": "<p>240 bottles per 45 minutes is 16 bottles per 3 minutes, or 320 per hour. In 2 hours: 640. Choice C is correct.</p>"
+    },
+    {
+      "id": "sample-math-s-1", "section": "math", "domain": "S", "skill": "TRI",
+      "skillDesc": "Lines, angles, and triangles", "difficulty": "E", "band": 2, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>Two angles of a triangle measure 65° and 45°. What is the measure of the third angle?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>60°</p>" },
+        { "letter": "B", "html": "<p>70°</p>" },
+        { "letter": "C", "html": "<p>80°</p>" },
+        { "letter": "D", "html": "<p>110°</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Triangle angles sum to 180°: 180 − 65 − 45 = 70. Choice B is correct.</p>"
+    },
+    {
+      "id": "sample-math-s-2", "section": "math", "domain": "S", "skill": "CIR",
+      "skillDesc": "Circles", "difficulty": "M", "band": 4, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>A circle has a circumference of 16π. What is its radius?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>4</p>" },
+        { "letter": "B", "html": "<p>8</p>" },
+        { "letter": "C", "html": "<p>16</p>" },
+        { "letter": "D", "html": "<p>32</p>" }
+      ],
+      "correct": ["B"],
+      "rationale": "<p>Circumference = 2πr, so 2πr = 16π and r = 8. Choice B is correct.</p>"
+    },
+    {
+      "id": "sample-math-s-3", "section": "math", "domain": "S", "skill": "RTT",
+      "skillDesc": "Right triangles and trigonometry", "difficulty": "H", "band": 7, "type": "mcq",
+      "stimulus": "",
+      "stem": "<p>In right triangle ABC, the right angle is at C, AC = 5, and BC = 12. What is the value of sin A?</p>",
+      "options": [
+        { "letter": "A", "html": "<p>5/13</p>" },
+        { "letter": "B", "html": "<p>5/12</p>" },
+        { "letter": "C", "html": "<p>12/13</p>" },
+        { "letter": "D", "html": "<p>13/12</p>" }
+      ],
+      "correct": ["C"],
+      "rationale": "<p>The hypotenuse AB = √(5² + 12²) = 13. sin A = opposite/hypotenuse = BC/AB = 12/13. Choice C is correct.</p>"
+    }
+  ]
+}
