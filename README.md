@@ -1,13 +1,16 @@
-> This repo hosts four small web apps:
+> This repo hosts five small apps:
 > **🧠 Lumen** (below), **📈 [MFFU Trade Copilot](tradebot/README.md)** — an AI
 > chart-analysis assistant + rules guardian for MyFundedFutures 25k evaluations,
 > living in [`tradebot/`](tradebot/) — **🎯 [Scout](scanner/README.md)** — an
 > on-demand Polymarket/Kalshi scanner that finds bets priced around 75% to hit,
-> with an optional AI second opinion, living in [`scanner/`](scanner/) — and
+> with an optional AI second opinion, living in [`scanner/`](scanner/) —
 > **⚡ [Pulse](scalper/README.md)** — a paper-trading memecoin scalper whose
 > adaptive smart-exit engine (momentum, volume, liquidity, emergency triggers)
 > races a fixed hold timer on seeded synthetic markets, living in
-> [`scalper/`](scalper/).
+> [`scalper/`](scalper/) — and **🤖 [Livebot](livebot/README.md)** — a Node.js
+> pump.fun sniper that runs Pulse's exit engine on the live market, paper-first
+> behind a stats gate, on your own machine, living in [`livebot/`](livebot/).
+> (The first four are no-build browser apps; Livebot is a local Node process.)
 
 # 🧠 Lumen — daily mind training
 
