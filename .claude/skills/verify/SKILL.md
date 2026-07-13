@@ -1,12 +1,14 @@
 ---
 name: verify
-description: How to run and verify the apps in this repo (Lumen at root, tradebot/, scanner/, scalper/).
+description: How to run and verify the apps in this repo (Lumen at root, tradebot/, scanner/, scalper/, and the livebot/ Node sniper).
 ---
 
 # Verifying this repo
 
-All four apps are no-build static sites: vanilla HTML/CSS/JS, state in
-localStorage, IIFE modules loaded via script tags.
+The first four apps (Lumen, tradebot, scanner, scalper) are no-build static
+sites: vanilla HTML/CSS/JS, state in localStorage, IIFE modules loaded via
+script tags. `livebot/` is different — a Node.js process (CommonJS) that reuses
+`scalper/js/exit.js` as its exit engine; see its own section below.
 
 ## Serve
 
@@ -46,9 +48,42 @@ should log zero errors.
 
 ## Unit tests
 
-The scanner and the scalper have node tests (pure engines, no DOM):
+The scanner, scalper, and livebot have node tests (pure logic, no DOM, no
+network):
 
 ```bash
-node --test scanner/test/scanner.test.js   # note: `scanner/test/` with trailing slash fails
+node --test scanner/test/scanner.test.js   # note: a trailing-slash dir arg fails
 node --test scalper/test/sim.test.js scalper/test/exit.test.js scalper/test/trader.test.js
+# livebot — list files explicitly (the bare `livebot/test/` dir form fails the same way):
+node --test livebot/test/feed.test.js livebot/test/paperBroker.test.js \
+  livebot/test/sniper.test.js livebot/test/risk.test.js \
+  livebot/test/store.test.js livebot/test/replay.test.js
 ```
+
+## livebot (Node sniper, paper-first)
+
+A live pump.fun sniper that runs Pulse's exit engine on real market data. It
+needs a persistent process + websockets + a wallet key, so it does NOT run on
+GitHub Pages — it runs locally. In the sandbox the PumpPortal websocket is
+blocked, so verify it via the **replay** path and the **dashboard** in
+isolation (no live feed needed):
+
+```bash
+# deterministic full-pipeline replay of the committed fixture → 1 trade
+node livebot/index.js --replay livebot/test/fixtures/session.jsonl
+# expect: "Replay complete: 24 messages → 1 trade(s)" and a ZETA EMERGENCY_WHALE_DUMP line
+```
+
+Dashboard: start `livebot/js/server.js` with a canned `getState` (see the
+pattern in the replay test / a small harness) bound to `127.0.0.1:8787`, then
+drive it with Playwright at 420×860 — assert the gate bar, a `.pos-card` with
+gauges, `.trade-row`s with itemized fees, and a working `#panic` POST, with
+zero console errors. `liveBroker.js`/`jupiter.js` require `@solana/web3.js`
+(only installed via `npm i` in `livebot/`) and only load in `--live` mode;
+`node --check` them for syntax without the dep.
+
+**Safety invariants to keep green:** the repo root `.gitignore` must list
+`livebot/.env` and `livebot/data/`; `livebot/js/wallet.js` `assertSafe()` must
+refuse live mode if `.env` is tracked; the per-trade cap is a frozen 0.05 SOL
+constant in `risk.js`; replay must use a throwaway store so it can't inflate
+the go-live gate.

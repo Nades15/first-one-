@@ -1,0 +1,18 @@
+{
+  "name": "livebot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Live pump.fun sniper driven by the Pulse smart-exit engine. Paper-first, runs on your own machine.",
+  "type": "commonjs",
+  "bin": { "livebot": "index.js" },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test test/"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "^6.0.0",
+    "ws": "^8.18.0"
+  }
+}

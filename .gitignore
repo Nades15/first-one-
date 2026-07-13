@@ -1,0 +1,12 @@
+# Secrets and live-bot runtime data — MUST never be committed.
+# The bot refuses to arm live trading unless livebot/.env is both
+# gitignored and untracked (see livebot/js/wallet.js assertSafe).
+livebot/.env
+livebot/.env.*
+!livebot/.env.example
+livebot/data/
+
+# Node
+node_modules/
+npm-debug.log*
+.DS_Store
