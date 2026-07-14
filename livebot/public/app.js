@@ -74,7 +74,7 @@
         '<div class="card">' +
           '<div class="kv"><span class="k"><span class="feed-dot ' + (s.feed.connected ? 'on' : 'off') + '"></span>feed</span>' +
             '<span class="mono">' + (s.feed.connected ? 'live' : 'down') + ' · ' + s.feed.watched + ' watched · ' +
-            s.feed.launches + ' launches · ' + s.feed.unknownMsgs + ' unknown</span></div>' +
+            s.feed.launches + ' launches · ' + s.feed.trades + ' trades</span></div>' +
           '<div class="kv"><span class="k">today net</span><span class="mono ' + cls(led.realizedNetSol) + '">' +
             sol(led.realizedNetSol || 0) + ' SOL / stop ' + (-(led.dailyStopSol || 0)) + '</span></div>' +
           (s.wallet && s.wallet.balanceSol != null ?

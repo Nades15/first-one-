@@ -19,13 +19,18 @@ expectations section before you fund anything.
 ## How it works
 
 ```
-PumpPortal websocket ──▶ feed ──ticks──▶ positions ──decide()──▶ broker (paper│live)
-        │                  │                 │  ▲                       │
-   new launches         sniper            SXExit (reused)         Helius RPC / signing
-                     (entry filters)           │
+Helius logsSubscribe ──▶ feed ──ticks──▶ positions ──decide()──▶ broker (paper│live)
+   (pump.fun program)      │                 │  ▲                       │
+   launches + trades     sniper            SXExit (reused)      trade-local / signing
+   decoded on-chain    (entry filters)         │
                                           risk caps · stats gate · panic
 ```
 
+- **Data** comes from the pump.fun program's logs over a **free** Helius
+  websocket (`logsSubscribe` — WebSocket events don't consume Helius credits).
+  Livebot decodes the on-chain `CreateEvent`/`TradeEvent` directly, so every
+  launch and trade streams in at no per-message cost. (PumpPortal's data
+  stream is paywalled + metered; we don't use it.)
 - **Sniper** watches launches and enters only those clearing config filters
   (dev buy size, unique buyers, net SOL inflow, dev holding %, curve size).
   Every skip is *shadow-tracked* — Livebot records what would have happened —
@@ -86,7 +91,8 @@ node livebot
 ```
 
 Open the dashboard at `http://127.0.0.1:8787`. Paper mode trades the live feed
-with simulated fills — no wallet needed, no real money at risk. Leave it
+with simulated fills — **no wallet needed** (just the free Helius key from
+step 3, since that's the data source), no real money at risk. Leave it
 running. You'll see launches stream in, positions open and close, and the
 trade log fill with itemized fees.
 
@@ -164,7 +170,8 @@ index.js              CLI entry: paper (default) / --live / --replay / --record-
 js/config.js          every threshold (FEED / SNIPER / TRADE / FEES / RISK / EXIT)
 js/env.js             .env parser + validation
 js/wallet.js          local signing; refuses live if .env is unsafe
-js/feed.js            PumpPortal ws, strict normalizer, TickBuilder, holders, recorder, replay
+js/pumpEvents.js      decode pump.fun CreateEvent/TradeEvent from on-chain logs
+js/feed.js            Helius logsSubscribe → decode → TickBuilder, holders, recorder, replay
 js/sniper.js          entry filters + skip-shadowing
 js/broker.js          shared fee model
 js/paperBroker.js     simulated fills on live reserves + latency + fees

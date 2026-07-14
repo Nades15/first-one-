@@ -4,8 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { createSniper } = require('../js/sniper.js');
 const { CONFIG } = require('../js/config.js');
-const { normalizeMsg } = require('../js/feed.js');
-const { LAUNCH, trade } = require('./fixtures/messages.js');
+const { launchMsg, tradeMsg } = require('./fixtures/messages.js');
 
 function harness(over) {
   const enters = [], skips = [];
@@ -23,13 +22,11 @@ function harness(over) {
 /* Launch a token whose dev bought 1 SOL, then push N buyers each 0.5 SOL. */
 function launchWithBuyers(sniper, n, opts) {
   const o = opts || {};
-  const launch = normalizeMsg(Object.assign({}, LAUNCH, o.launch), o.launchT != null ? o.launchT : 0);
-  sniper.onLaunch(launch);
+  sniper.onLaunch(launchMsg(Object.assign(
+    { mint: 'MINT1', creator: 'DEV', devBuySol: 1.0, devBuyTokens: 30e6, vSol: 31, vTokens: 1.043e9, recvT: o.launchT || 0 },
+    o.launch)));
   for (let i = 0; i < n; i++) {
-    sniper.onTrade(normalizeMsg(trade({
-      traderPublicKey: 'B' + i, txType: 'buy', solAmount: 0.5, tokenAmount: 1e6, newTokenBalance: 1e6,
-      vSolInBondingCurve: 33 + i, vTokensInBondingCurve: 1.0e9,
-    }), 100 + i));
+    sniper.onTrade(tradeMsg({ mint: 'MINT1', wallet: 'B' + i, side: 'buy', sol: 0.5, tokens: 1e6, vSol: 33 + i, vTokens: 1.0e9, recvT: 100 + i }));
   }
 }
 
@@ -51,7 +48,7 @@ test('does not decide before the decision delay', () => {
 
 test('blacklisted creator is skipped at launch, never watched', () => {
   const { sniper, skips } = harness({ isBlacklisted: () => true });
-  const ok = sniper.onLaunch(normalizeMsg(LAUNCH, 0));
+  const ok = sniper.onLaunch(launchMsg({ mint: 'MINT1' }));
   assert.equal(ok, false);
   assert.equal(skips[0].reasons[0], 'CREATOR_BLACKLISTED');
   assert.equal(skips[0].watched, false);
@@ -59,10 +56,10 @@ test('blacklisted creator is skipped at launch, never watched', () => {
 
 test('dev buy outside the band is skipped at launch', () => {
   let h = harness();
-  assert.equal(h.sniper.onLaunch(normalizeMsg(Object.assign({}, LAUNCH, { solAmount: 0.1 }), 0)), false);
+  assert.equal(h.sniper.onLaunch(launchMsg({ mint: 'MINT1', devBuySol: 0.1 })), false);
   assert.ok(h.skips[0].reasons[0].startsWith('DEV_BUY_TOO_SMALL'));
   h = harness();
-  assert.equal(h.sniper.onLaunch(normalizeMsg(Object.assign({}, LAUNCH, { solAmount: 9 }), 0)), false);
+  assert.equal(h.sniper.onLaunch(launchMsg({ mint: 'MINT1', devBuySol: 9 })), false);
   assert.ok(h.skips[0].reasons[0].startsWith('DEV_BUY_TOO_LARGE'));
 });
 
@@ -98,10 +95,10 @@ test('watchlist eviction drops the oldest undecided candidate', () => {
   const { sniper } = harness({ sniper: {} });
   const cfgMax = CONFIG.FEED.maxWatchedTokens;
   for (let i = 0; i < cfgMax; i++) {
-    sniper.onLaunch(normalizeMsg(Object.assign({}, LAUNCH, { mint: 'M' + i }), i));
+    sniper.onLaunch(launchMsg({ mint: 'M' + i, recvT: i }));
   }
   assert.equal(sniper.watchedMints().length, cfgMax);
-  sniper.onLaunch(normalizeMsg(Object.assign({}, LAUNCH, { mint: 'MNEW' }), 9999));
+  sniper.onLaunch(launchMsg({ mint: 'MNEW', recvT: 9999 }));
   assert.equal(sniper.watchedMints().length, cfgMax);
   assert.ok(sniper.has('MNEW'));
   assert.ok(!sniper.has('M0'));                       // oldest evicted

@@ -1,76 +1,88 @@
-/* Livebot — market feed adapter. Turns the PumpPortal websocket into the
- * exact tick shape scalper/js/exit.js consumes. Pure, testable units
- * (normalizeMsg, TickBuilder) are separated from the IO units (ws source,
- * holder poller). A replay source feeds recorded sessions back on a virtual
- * clock so the whole pipeline is deterministic in tests.
+/* Livebot — market feed adapter (Helius). Subscribes to the pump.fun program's
+ * logs over a free Helius websocket (logsSubscribe consumes no credits), decodes
+ * the on-chain CreateEvent/TradeEvent from the `Program data:` log lines, and
+ * emits them in the exact normalized shapes the rest of the bot consumes — so
+ * the TickBuilder, sniper, engine, recorder and replay are all unchanged.
  *
- * PumpPortal message fields (verified July 2026):
- *   create: { txType:'create', signature, mint, traderPublicKey, name, symbol,
- *             uri, initialBuy(tokens), solAmount(SOL dev spent),
- *             vTokensInBondingCurve, vSolInBondingCurve, marketCapSol }
- *   trade:  { txType:'buy'|'sell', signature, mint, traderPublicKey,
- *             tokenAmount, solAmount, newTokenBalance,
- *             vTokensInBondingCurve, vSolInBondingCurve, marketCapSol }
- * The normalizer is STRICT: anything missing a required field becomes
- * kind:'unknown' and is counted, so schema drift is visible on the dashboard
- * and diagnosable from the always-on raw recording. */
+ * A single logsSubscribe to the program delivers EVERY launch and trade on the
+ * bonding curve; the pipeline only acts on mints it's tracking. No PumpPortal,
+ * no per-message SOL cost. Amounts on-chain are lamports / 6-decimal base
+ * units; we normalize to whole SOL / whole tokens here.
+ *
+ * Normalized shapes (identical to the previous PumpPortal adapter):
+ *   { kind:'launch', mint, creator, name, symbol, uri, devBuySol, devBuyTokens,
+ *     vSol, vTokens, sig, recvT }
+ *   { kind:'trade', mint, side, wallet, sol, tokens, walletNewBalance:null,
+ *     vSol, vTokens, sig, recvT } */
 'use strict';
+
+const { decodeEvent, PUMP_PROGRAM_ID } = require('./pumpEvents.js');
+
+const LAMPORTS = 1e9;
+const TOKEN_DECIMALS = 1e6;
+const INIT_VSOL = 30;                 // pump.fun bonding-curve initial virtual reserves,
+const INIT_VTOKENS = 1_073_000_000;   // used only if a launch has no paired dev buy
 
 const num = v => { const n = Number(v); return isFinite(n) ? n : NaN; };
 const str = v => (v == null ? '' : String(v));
 
-/* ----------------------------- normalizer ------------------------------ */
+/* ----------------------- Helius log → messages ------------------------ */
 
-function normalizeMsg(raw, recvT) {
-  if (!raw || typeof raw !== 'object') return { kind: 'unknown', raw, recvT };
-  const tx = raw.txType || raw.type;
-
-  if (tx === 'create') {
-    const vSol = num(raw.vSolInBondingCurve), vTokens = num(raw.vTokensInBondingCurve);
-    if (!raw.mint || !isFinite(vSol) || !isFinite(vTokens) || vTokens <= 0) return unknown(raw, recvT);
-    return {
-      kind: 'launch', recvT,
-      mint: str(raw.mint), creator: str(raw.traderPublicKey),
-      name: str(raw.name), symbol: str(raw.symbol), uri: str(raw.uri),
-      devBuySol: isFinite(num(raw.solAmount)) ? num(raw.solAmount) : 0,
-      devBuyTokens: isFinite(num(raw.initialBuy)) ? num(raw.initialBuy) : 0,
-      vSol, vTokens, sig: str(raw.signature),
-    };
-  }
-
-  if (tx === 'buy' || tx === 'sell') {
-    const vSol = num(raw.vSolInBondingCurve), vTokens = num(raw.vTokensInBondingCurve);
-    const sol = num(raw.solAmount), tokens = num(raw.tokenAmount);
-    if (!raw.mint || !isFinite(vSol) || !isFinite(vTokens) || vTokens <= 0 ||
-        !isFinite(sol) || !isFinite(tokens)) return unknown(raw, recvT);
-    return {
-      kind: 'trade', recvT,
-      mint: str(raw.mint), side: tx, wallet: str(raw.traderPublicKey),
-      sol, tokens,
-      walletNewBalance: isFinite(num(raw.newTokenBalance)) ? num(raw.newTokenBalance) : null,
-      vSol, vTokens, sig: str(raw.signature),
-    };
-  }
-
-  if (tx === 'migrate' || raw.pool === 'pump-amm' && raw.migration) {
-    return { kind: 'migration', recvT, mint: str(raw.mint) };
-  }
-
-  return unknown(raw, recvT);
+function tradeMsg(e, recvT, sig) {
+  return {
+    kind: 'trade', recvT, mint: e.mint, side: e.isBuy ? 'buy' : 'sell', wallet: e.user,
+    sol: e.solLamports / LAMPORTS, tokens: e.tokenBase / TOKEN_DECIMALS,
+    walletNewBalance: null,           // not in TradeEvent; TickBuilder keeps a running balance
+    vSol: e.vSolLamports / LAMPORTS, vTokens: e.vTokensBase / TOKEN_DECIMALS, sig,
+  };
 }
 
-function unknown(raw, recvT) { return { kind: 'unknown', raw, recvT }; }
+/* Decode one Helius logsNotification into 0+ normalized messages. A token's
+ * creation transaction carries the CreateEvent AND the dev's initial buy in the
+ * same logs, so we fold the dev buy into the launch (and don't double-count it
+ * as a trade). Failed transactions (value.err) are skipped. */
+function decodeNotification(raw, recvT) {
+  const val = raw && raw.params && raw.params.result && raw.params.result.value;
+  if (!val || val.err || !Array.isArray(val.logs)) return [];
+  const sig = str(val.signature);
+  const events = [];
+  for (const line of val.logs) {
+    if (typeof line !== 'string' || !line.startsWith('Program data: ')) continue;
+    const ev = decodeEvent(line.slice(14));       // 'Program data: '.length === 14
+    if (ev) events.push(ev);
+  }
+  if (!events.length) return [];
+
+  const out = [];
+  const create = events.find(e => e.type === 'create');
+  if (create) {
+    const devTrade = events.find(e => e.type === 'trade' && e.user === create.user && e.isBuy);
+    out.push({
+      kind: 'launch', recvT, mint: create.mint, creator: create.user,
+      name: create.name, symbol: create.symbol, uri: create.uri,
+      vSol: devTrade ? devTrade.vSolLamports / LAMPORTS : INIT_VSOL,
+      vTokens: devTrade ? devTrade.vTokensBase / TOKEN_DECIMALS : INIT_VTOKENS,
+      devBuySol: devTrade ? devTrade.solLamports / LAMPORTS : 0,
+      devBuyTokens: devTrade ? devTrade.tokenBase / TOKEN_DECIMALS : 0,
+      sig,
+    });
+    for (const e of events) if (e.type === 'trade' && e !== devTrade) out.push(tradeMsg(e, recvT, sig));
+  } else {
+    for (const e of events) if (e.type === 'trade') out.push(tradeMsg(e, recvT, sig));
+  }
+  return out;
+}
 
 /* ----------------------------- TickBuilder ----------------------------- */
 
 /* One per watched mint. Fold normalized messages in with note(); emit an
- * engine tick with flush(t). Holders are derived from the trade stream for
- * free (each trade carries the trader's new absolute balance). */
+ * engine tick with flush(t). Holders are derived from the trade stream:
+ * TradeEvents carry no absolute balance, so we keep a running per-wallet total
+ * (dev seeded from the launch), corrected periodically by the RPC poller. */
 function createTickBuilder(opts) {
   const supply = (opts && opts.supply) || 1e9;
   const selfWallet = opts && opts.selfWallet;
   const devWallet = opts && opts.devWallet;
-  const holderPollOverride = null;                 // set via setHolders()
 
   const balances = new Map();                       // wallet -> tokens
   let pending = [];                                 // trades since last flush
@@ -82,14 +94,21 @@ function createTickBuilder(opts) {
   function seedLaunch(msg) {
     if (msg.creator && msg.devBuyTokens > 0) balances.set(msg.creator, msg.devBuyTokens);
     lastPool = { base: msg.vTokens, quote: msg.vSol };
-    lastPrice = msg.vSol / msg.vTokens;
+    lastPrice = msg.vTokens > 0 ? msg.vSol / msg.vTokens : 0;
   }
 
   function note(msg) {
     if (msg.kind === 'launch') { seedLaunch(msg); return; }
     if (msg.kind !== 'trade') return;
     pending.push({ side: msg.side, base: msg.tokens, quote: msg.sol, wallet: msg.wallet });
-    if (msg.wallet && msg.walletNewBalance !== null) balances.set(msg.wallet, msg.walletNewBalance);
+    if (msg.wallet) {
+      if (msg.walletNewBalance !== null && msg.walletNewBalance !== undefined) {
+        balances.set(msg.wallet, msg.walletNewBalance);       // absolute (legacy feeds)
+      } else {                                                // running total (Helius)
+        const cur = balances.get(msg.wallet) || 0;
+        balances.set(msg.wallet, Math.max(0, cur + (msg.side === 'buy' ? msg.tokens : -msg.tokens)));
+      }
+    }
     lastPool = { base: msg.vTokens, quote: msg.vSol };
     if (msg.vTokens > 0) lastPrice = msg.vSol / msg.vTokens;
   }
@@ -106,8 +125,7 @@ function createTickBuilder(opts) {
   }
 
   /* Emit the tick for time t and clear the per-tick trade list. Quiet ticks
-   * (no trades) still carry the last pool sample — the engine's liquidity
-   * ring needs one per tick. */
+   * still carry the last pool sample — the engine's liquidity ring needs one. */
   function flush(t) {
     const tick = {
       t,
@@ -132,31 +150,29 @@ function createTickBuilder(opts) {
 
 /* ------------------------------ ws source ------------------------------ */
 
-/* Thin PumpPortal client with reconnect/backoff and subscription replay.
- * WebSocketImpl is injectable so tests use a fake. Tracks the desired
- * subscription set as the source of truth and re-sends it on every (re)open. */
+/* Helius websocket client. On (re)connect it sends a single logsSubscribe for
+ * the pump.fun program; that one subscription streams every launch and trade.
+ * WebSocketImpl is injectable for tests. */
 function createWsSource(opts) {
   const url = opts.url;
+  const programId = opts.programId || PUMP_PROGRAM_ID;
+  const commitment = opts.commitment || 'processed';
   const WS = opts.WebSocketImpl || require('ws');
   const onMessage = opts.onMessage || (() => {});
   const onStatus = opts.onStatus || (() => {});
   const minMs = opts.reconnectMinMs || 500, maxMs = opts.reconnectMaxMs || 8000;
 
   let ws = null, backoff = minMs, closed = false, lastMsgAt = 0;
-  let subNewToken = false;
-  const tokenKeys = new Set();
 
   function send(obj) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); } catch (e) {} }
-
-  function resubscribe() {
-    if (subNewToken) send({ method: 'subscribeNewToken' });
-    if (tokenKeys.size) send({ method: 'subscribeTokenTrade', keys: Array.from(tokenKeys) });
+  function subscribe() {
+    send({ jsonrpc: '2.0', id: 1, method: 'logsSubscribe', params: [{ mentions: [programId] }, { commitment }] });
   }
 
   function connect() {
     if (closed) return;
     ws = new WS(url);
-    ws.onopen = () => { backoff = minMs; lastMsgAt = Date.now(); onStatus({ connected: true }); resubscribe(); };
+    ws.onopen = () => { backoff = minMs; lastMsgAt = Date.now(); onStatus({ connected: true }); subscribe(); };
     ws.onmessage = (ev) => {
       lastMsgAt = Date.now();
       let raw; try { raw = JSON.parse(ev.data); } catch (e) { return; }
@@ -175,9 +191,11 @@ function createWsSource(opts) {
   return {
     start() { closed = false; connect(); },
     close() { closed = true; try { ws && ws.close(); } catch (e) {} },
-    subscribeNewToken() { subNewToken = true; send({ method: 'subscribeNewToken' }); },
-    subscribeToken(mint) { if (!tokenKeys.has(mint)) { tokenKeys.add(mint); send({ method: 'subscribeTokenTrade', keys: [mint] }); } },
-    unsubscribeToken(mint) { if (tokenKeys.delete(mint)) send({ method: 'unsubscribeTokenTrade', keys: [mint] }); },
+    // logsSubscribe already covers launches AND trades; these are no-ops kept
+    // for interface compatibility with the pipeline's subscribe callbacks.
+    subscribeNewToken() {},
+    subscribeToken() {},
+    unsubscribeToken() {},
     connected() { return !!(ws && ws.readyState === 1); },
     lastMsgAgoMs() { return lastMsgAt ? Date.now() - lastMsgAt : Infinity; },
   };
@@ -186,8 +204,7 @@ function createWsSource(opts) {
 /* ---------------------------- replay source ---------------------------- */
 
 /* Reads recorded { recvT, raw } JSONL lines and drives the pipeline on a
- * virtual clock: no timers, no wall time. run() walks messages in order,
- * flushing ticks at every tickMs boundary — identical every run. */
+ * virtual clock: no timers, no wall time. Identical every run. */
 function createReplaySource(lines, opts) {
   const tickMs = (opts && opts.tickMs) || 250;
   const onMessage = (opts && opts.onMessage) || (() => {});
@@ -202,14 +219,12 @@ function createReplaySource(lines, opts) {
   function run() {
     if (!msgs.length) return;
     const t0 = msgs[0].recvT;
-    // Ticks fire on the SAME absolute clock as recvT (t0+250, t0+500, ...), so
-    // the sniper's launchT (an absolute recvT) and the tick time agree.
     let nextTick = t0 + tickMs;
     for (const m of msgs) {
       while (m.recvT >= nextTick) { onTick(nextTick); nextTick += tickMs; }
       onMessage(m.raw, m.recvT);
     }
-    onTick(nextTick);                                // final flush so last trades land
+    onTick(nextTick);
   }
 
   return { run, count: msgs.length };
@@ -235,8 +250,8 @@ function createRecorder(store, name) {
 function createHolderPoller(opts) {
   const intervalMs = (opts && opts.intervalMs) || 2000;
   const supply = (opts && opts.supply) || 1e9;
-  const rpcCall = opts && opts.rpcCall;             // async ({method,params}) => result
-  const last = new Map();                           // mint -> last poll ms
+  const rpcCall = opts && opts.rpcCall;
+  const last = new Map();
 
   async function poll(mint) {
     if (!rpcCall) return null;
@@ -257,6 +272,6 @@ function createHolderPoller(opts) {
 }
 
 module.exports = {
-  normalizeMsg, createTickBuilder, createWsSource, createReplaySource,
+  decodeNotification, createTickBuilder, createWsSource, createReplaySource,
   createRecorder, createHolderPoller,
 };

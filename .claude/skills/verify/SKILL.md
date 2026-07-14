@@ -55,18 +55,20 @@ network):
 node --test scanner/test/scanner.test.js   # note: a trailing-slash dir arg fails
 node --test scalper/test/sim.test.js scalper/test/exit.test.js scalper/test/trader.test.js
 # livebot — list files explicitly (the bare `livebot/test/` dir form fails the same way):
-node --test livebot/test/feed.test.js livebot/test/paperBroker.test.js \
-  livebot/test/sniper.test.js livebot/test/risk.test.js \
-  livebot/test/store.test.js livebot/test/replay.test.js
+node --test livebot/test/pumpEvents.test.js livebot/test/feed.test.js \
+  livebot/test/paperBroker.test.js livebot/test/sniper.test.js \
+  livebot/test/risk.test.js livebot/test/store.test.js livebot/test/replay.test.js
 ```
 
 ## livebot (Node sniper, paper-first)
 
-A live pump.fun sniper that runs Pulse's exit engine on real market data. It
-needs a persistent process + websockets + a wallet key, so it does NOT run on
-GitHub Pages — it runs locally. In the sandbox the PumpPortal websocket is
-blocked, so verify it via the **replay** path and the **dashboard** in
-isolation (no live feed needed):
+A live pump.fun sniper that runs Pulse's exit engine on real market data. Its
+data feed is the pump.fun program's logs over a free Helius `logsSubscribe`
+websocket (decoded on-chain by `js/pumpEvents.js`); it needs a persistent
+process + a Helius key (paper) / wallet key (live), so it does NOT run on
+GitHub Pages — it runs locally. In the sandbox the live websocket is blocked,
+so verify it via the **replay** path and the **dashboard** in isolation (no
+live feed needed):
 
 ```bash
 # deterministic full-pipeline replay of the committed fixture → 1 trade

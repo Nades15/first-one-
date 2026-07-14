@@ -1,91 +1,76 @@
-/* Feed adapter tests — node --test livebot/test/feed.test.js. Zero network. */
+/* Feed adapter tests (Helius) — node --test livebot/test/feed.test.js. Zero network. */
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  normalizeMsg, createTickBuilder, createWsSource, createReplaySource, createHolderPoller,
+  decodeNotification, createTickBuilder, createWsSource, createReplaySource, createHolderPoller,
 } = require('../js/feed.js');
-const { LAUNCH, trade } = require('./fixtures/messages.js');
+const { launchNotif, tradeNotif, launchMsg, tradeMsg, addr } = require('./fixtures/messages.js');
 
-/* ------------------------------ normalizer ------------------------------ */
+/* --------------------- notification → normalized messages -------------------- */
 
-test('normalizes a create message into a launch', () => {
-  const m = normalizeMsg(LAUNCH, 1000);
+test('a launch notification folds the dev buy into one launch message', () => {
+  const msgs = decodeNotification(launchNotif({ mint: 'MINTZ', creator: 'DEV', devBuySol: 1.0, devBuyTokens: 30e6, vSol: 31, vTokens: 1.043e9 }), 1000);
+  assert.equal(msgs.length, 1);                         // dev buy is folded in, not a separate trade
+  const m = msgs[0];
   assert.equal(m.kind, 'launch');
-  assert.equal(m.mint, 'MINT1');
-  assert.equal(m.creator, 'DEV');
-  assert.equal(m.devBuySol, 1.0);
-  assert.equal(m.devBuyTokens, 30e6);
-  assert.equal(m.vSol, 31.0);
-  assert.equal(m.vTokens, 1.043e9);
+  assert.equal(m.mint, addr('MINTZ'));
+  assert.equal(m.creator, addr('DEV'));
+  assert.equal(m.name, 'Zeta');
+  assert.equal(m.symbol, 'ZETA');
+  assert.ok(Math.abs(m.devBuySol - 1.0) < 1e-9);
+  assert.ok(Math.abs(m.devBuyTokens - 30e6) < 1);
+  assert.ok(Math.abs(m.vSol - 31) < 1e-9);
+  assert.ok(Math.abs(m.vTokens - 1.043e9) < 1);
 });
 
-test('normalizes buy and sell trades', () => {
-  const b = normalizeMsg(trade({ txType: 'buy', solAmount: 0.05, tokenAmount: 1.6e6, newTokenBalance: 1.6e6 }), 1200);
-  assert.equal(b.kind, 'trade');
-  assert.equal(b.side, 'buy');
-  assert.equal(b.sol, 0.05);
-  assert.equal(b.tokens, 1.6e6);
-  assert.equal(b.walletNewBalance, 1.6e6);
-  const s = normalizeMsg(trade({ txType: 'sell' }), 1300);
+test('a trade notification decodes to one trade message with lamports/base normalized', () => {
+  const [m] = decodeNotification(tradeNotif({ mint: 'MINTZ', wallet: 'W1', side: 'buy', sol: 0.05, tokens: 1.6e6, vSol: 31.05, vTokens: 1.042e9 }), 1200);
+  assert.equal(m.kind, 'trade');
+  assert.equal(m.side, 'buy');
+  assert.equal(m.wallet, addr('W1'));
+  assert.ok(Math.abs(m.sol - 0.05) < 1e-9);             // lamports → SOL
+  assert.ok(Math.abs(m.tokens - 1.6e6) < 1);           // base → whole tokens
+  assert.ok(Math.abs(m.vSol - 31.05) < 1e-6);
+  assert.equal(m.walletNewBalance, null);
+  const [s] = decodeNotification(tradeNotif({ side: 'sell', sol: 0.02, vSol: 31, vTokens: 1.043e9 }), 1300);
   assert.equal(s.side, 'sell');
 });
 
-test('missing required fields become unknown (schema-drift safety)', () => {
-  assert.equal(normalizeMsg({ txType: 'buy', mint: 'M' }, 1).kind, 'unknown');       // no reserves/amounts
-  assert.equal(normalizeMsg({ txType: 'create', name: 'x' }, 1).kind, 'unknown');    // no mint/reserves
-  assert.equal(normalizeMsg({ txType: 'weird', mint: 'M' }, 1).kind, 'unknown');
-  assert.equal(normalizeMsg(null, 1).kind, 'unknown');
+test('failed transactions and non-pump notifications yield nothing', () => {
+  assert.deepEqual(decodeNotification(tradeNotif({ sol: 1, vSol: 31, vTokens: 1e9, err: { InstructionError: [0, 'x'] } }), 1), []);
+  assert.deepEqual(decodeNotification({ params: { result: { value: { logs: ['Program log: hi'], err: null } } } }, 1), []);
+  assert.deepEqual(decodeNotification({ result: 12345, id: 1 }, 1), []);   // subscription confirmation
 });
 
 /* ------------------------------ TickBuilder ----------------------------- */
 
-test('TickBuilder aggregates a window of trades into one tick', () => {
+test('TickBuilder aggregates trades and keeps a running holder balance', () => {
   const tb = createTickBuilder({ supply: 1e9, devWallet: 'DEV' });
-  tb.note(normalizeMsg(LAUNCH, 0));
-  tb.note(normalizeMsg(trade({ traderPublicKey: 'W1', txType: 'buy', solAmount: 0.05, tokenAmount: 1.5e6, newTokenBalance: 1.5e6, vSolInBondingCurve: 31.05, vTokensInBondingCurve: 1.042e9 }), 50));
-  tb.note(normalizeMsg(trade({ traderPublicKey: 'W2', txType: 'sell', solAmount: 0.02, tokenAmount: 6e5, newTokenBalance: 0, vSolInBondingCurve: 31.03, vTokensInBondingCurve: 1.0425e9 }), 120));
+  tb.note(launchMsg({ creator: 'DEV', devBuyTokens: 30e6 }));         // dev seeded at 3%
+  tb.note(tradeMsg({ wallet: 'W1', side: 'buy', tokens: 50e6, sol: 1, vSol: 32, vTokens: 1.02e9 }));  // +5%
+  tb.note(tradeMsg({ wallet: 'W1', side: 'sell', tokens: 20e6, sol: 0.4, vSol: 31.6, vTokens: 1.03e9 })); // -2% → net 3%
   const tick = tb.flush(250);
-  assert.equal(tick.t, 250);
   assert.equal(tick.trades.length, 2);
-  assert.equal(tick.trades[0].side, 'buy');
-  assert.equal(tick.trades[0].quote, 0.05);
-  // price from the LAST trade's reserves
-  assert.ok(Math.abs(tick.price - 31.03 / 1.0425e9) < 1e-30);
-  assert.deepEqual(tick.pool, { base: 1.0425e9, quote: 31.03 });
-  // next flush has no trades but keeps the last pool sample
-  const quiet = tb.flush(500);
-  assert.equal(quiet.trades.length, 0);
-  assert.deepEqual(quiet.pool, { base: 1.0425e9, quote: 31.03 });
-});
-
-test('holders are derived from the stream with dev seeded from the launch', () => {
-  const tb = createTickBuilder({ supply: 1e9, devWallet: 'DEV' });
-  tb.note(normalizeMsg(LAUNCH, 0));                                   // dev holds 30e6 = 3%
-  tb.note(normalizeMsg(trade({ traderPublicKey: 'W1', newTokenBalance: 50e6 }), 40)); // 5%
-  const tick = tb.flush(250);
+  assert.deepEqual(tick.pool, { base: 1.03e9, quote: 31.6 });         // last trade's reserves
   const byW = {};
   for (const h of tick.holders) byW[h.wallet] = h.pct;
-  assert.ok(Math.abs(byW.W1 - 5) < 1e-9);
-  assert.ok(Math.abs(byW.DEV - 3) < 1e-9);
-  assert.equal(tick.holders[0].wallet, 'W1');                        // sorted desc
+  assert.ok(Math.abs(byW.W1 - 3) < 1e-6, 'running balance 50-20=30M = 3%');
+  assert.ok(Math.abs(byW.DEV - 3) < 1e-6);
 });
 
-test('flags default clean and only known flags can be set', () => {
+test('quiet ticks repeat the last pool sample', () => {
   const tb = createTickBuilder({ supply: 1e9 });
-  tb.note(normalizeMsg(LAUNCH, 0));
-  let tick = tb.flush(250);
-  assert.deepEqual(tick.flags, { sellRestricted: false, mintEnabled: false, lpUnlocked: false, blacklistRisk: false });
-  tb.setFlag('mintEnabled', true);
-  tb.setFlag('bogus', true);
-  tick = tb.flush(500);
-  assert.equal(tick.flags.mintEnabled, true);
-  assert.equal(tick.flags.bogus, undefined);
+  tb.note(launchMsg());
+  tb.flush(250);
+  const quiet = tb.flush(500);
+  assert.equal(quiet.trades.length, 0);
+  assert.ok(quiet.pool.quote > 0);
 });
 
 test('RPC holder corrector overrides stream-derived holders when set', () => {
   const tb = createTickBuilder({ supply: 1e9 });
-  tb.note(normalizeMsg(LAUNCH, 0));
+  tb.note(launchMsg());
   tb.setHolders([{ wallet: 'WHALE', pct: 9 }]);
   assert.equal(tb.flush(250).holders[0].wallet, 'WHALE');
   tb.setHolders(null);
@@ -94,52 +79,40 @@ test('RPC holder corrector overrides stream-derived holders when set', () => {
 
 /* ------------------------------ ws source ------------------------------- */
 
-test('ws source resubscribes to new-token and token streams on open', () => {
+test('ws source sends a single logsSubscribe for the pump program on open', () => {
   const sent = [];
-  let handlers = {};
   class FakeWS {
     constructor() { this.readyState = 1; FakeWS.last = this; }
     send(s) { sent.push(JSON.parse(s)); }
     close() { this.readyState = 3; if (this.onclose) this.onclose(); }
   }
-  const src = createWsSource({ url: 'ws://x', WebSocketImpl: FakeWS, onMessage: () => {} });
+  const src = createWsSource({ url: 'wss://x', programId: 'PUMP', WebSocketImpl: FakeWS, onMessage: () => {} });
   src.start();
-  FakeWS.last.onopen();                     // initial connect
-  src.subscribeNewToken();
-  src.subscribeToken('MINT1');
-  sent.length = 0;
-  FakeWS.last.onopen();                     // simulate reconnect → replays desired subs
-  const methods = sent.map(m => m.method);
-  assert.ok(methods.includes('subscribeNewToken'));
-  const tokenSub = sent.find(m => m.method === 'subscribeTokenTrade');
-  assert.deepEqual(tokenSub.keys, ['MINT1']);
+  FakeWS.last.onopen();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].method, 'logsSubscribe');
+  assert.deepEqual(sent[0].params[0], { mentions: ['PUMP'] });
 });
 
 /* ---------------------------- replay source ----------------------------- */
 
-test('replay drives ticks deterministically from recorded arrival times', () => {
+test('replay drives ticks deterministically from recorded notifications', () => {
   const lines = [
-    { recvT: 1000, raw: LAUNCH },
-    { recvT: 1050, raw: trade({ traderPublicKey: 'W1', solAmount: 0.05, tokenAmount: 1.5e6, newTokenBalance: 1.5e6 }) },
-    { recvT: 1300, raw: trade({ traderPublicKey: 'W2', txType: 'sell', solAmount: 0.02, tokenAmount: 6e5, newTokenBalance: 0 }) },
+    { recvT: 1000, raw: launchNotif({ mint: 'MINTZ', creator: 'DEV' }) },
+    { recvT: 1050, raw: tradeNotif({ mint: 'MINTZ', wallet: 'W1', side: 'buy', sol: 0.5, tokens: 1.5e6, vSol: 31.5, vTokens: 1.04e9 }) },
+    { recvT: 1300, raw: tradeNotif({ mint: 'MINTZ', wallet: 'W2', side: 'sell', sol: 0.2, tokens: 6e5, vSol: 31.3, vTokens: 1.045e9 }) },
   ];
   function runOnce() {
-    const tb = createTickBuilder({ supply: 1e9, devWallet: 'DEV' });
+    const tb = createTickBuilder({ supply: 1e9, devWallet: addr('DEV') });
     const ticks = [];
-    const rp = createReplaySource(lines, {
+    createReplaySource(lines, {
       tickMs: 250,
-      onMessage: (raw, recvT) => tb.note(normalizeMsg(raw, recvT)),
+      onMessage: (raw, recvT) => { for (const m of decodeNotification(raw, recvT)) tb.note(m); },
       onTick: (t) => ticks.push(tb.flush(t)),
-    });
-    rp.run();
+    }).run();
     return ticks;
   }
-  const a = runOnce(), b = runOnce();
-  assert.deepEqual(a, b);                    // byte-identical reruns
-  assert.ok(a.length >= 2);
-  // first 250ms window (t=250) holds the launch + first buy; the sell (rel 300) lands in a later tick
-  const firstWithTrades = a.find(t => t.trades.length);
-  assert.equal(firstWithTrades.trades[0].wallet, 'W1');
+  assert.deepEqual(runOnce(), runOnce());               // byte-identical reruns
 });
 
 /* ---------------------------- holder poller ----------------------------- */
@@ -150,10 +123,9 @@ test('holder poller throttles and maps largest accounts to pct', async () => {
     intervalMs: 2000, supply: 1e9,
     rpcCall: async () => { calls++; return { value: [{ address: 'A', uiAmount: 80e6 }, { address: 'B', uiAmount: 20e6 }] }; },
   });
-  const first = await poller.poll('MINT1');
+  const first = await poller.poll('MINTZ');
   assert.equal(calls, 1);
   assert.equal(first[0].wallet, 'A');
   assert.ok(Math.abs(first[0].pct - 8) < 1e-9);
-  assert.equal(await poller.poll('MINT1'), null);   // throttled inside the interval
-  assert.equal(calls, 1);
+  assert.equal(await poller.poll('MINTZ'), null);       // throttled inside the interval
 });

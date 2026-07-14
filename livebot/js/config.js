@@ -6,8 +6,12 @@ const SXExit = require('../../scalper/js/exit.js');
 
 const CONFIG = {
   /* ------------------------------ market feed ----------------------------- */
+  /* Data comes from the pump.fun program's logs over a free Helius websocket
+   * (logsSubscribe consumes no credits). The ws URL is derived at runtime from
+   * HELIUS_RPC_URL (https -> wss). */
   FEED: {
-    wsUrl: 'wss://pumpportal.fun/api/data',
+    pumpProgramId: '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P',
+    commitment: 'processed',     // fastest; we want to see trades ASAP
     tickMs: 250,                 // engine tick cadence (matches the sim)
     reconnectMinMs: 500,
     reconnectMaxMs: 8000,

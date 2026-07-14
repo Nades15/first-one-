@@ -6,7 +6,7 @@
  * contains the routing logic that the replay test exercises end to end. */
 'use strict';
 
-const { normalizeMsg, createTickBuilder } = require('./feed.js');
+const { decodeNotification, createTickBuilder } = require('./feed.js');
 const { createSniper } = require('./sniper.js');
 const { createPositionManager } = require('./positions.js');
 
@@ -23,7 +23,7 @@ function createPipeline(opts) {
   const builders = new Map();          // mint -> TickBuilder (watched or held)
   const lastTick = new Map();          // mint -> latest tick (for entry timing)
   const graduating = new Set();        // mints flagged for graduation exit
-  const stats = { unknownMsgs: 0, launches: 0, entries: 0, skips: 0 };
+  const stats = { notifications: 0, launches: 0, trades: 0, entries: 0, skips: 0 };
 
   const sniper = createSniper({
     cfg,
@@ -73,11 +73,16 @@ function createPipeline(opts) {
     unsubscribe(mint);
   }
 
-  /* Feed every raw ws (or recorded) message here. */
+  /* Feed every raw ws (or recorded) notification here. One Helius notification
+   * can carry a launch plus several trades, so decode into 0+ messages and
+   * route each. */
   function onMessage(raw, recvT) {
-    const m = normalizeMsg(raw, recvT);
-    if (m.kind === 'unknown') { stats.unknownMsgs++; return; }
+    const msgs = decodeNotification(raw, recvT);
+    if (msgs.length) stats.notifications++;
+    for (const m of msgs) routeMessage(m, recvT);
+  }
 
+  function routeMessage(m, recvT) {
     if (m.kind === 'launch') {
       stats.launches++;
       if (sniper.onLaunch(m)) ensureBuilder(m.mint, m);
@@ -88,6 +93,7 @@ function createPipeline(opts) {
       return;
     }
     if (m.kind === 'trade') {
+      stats.trades++;
       const tb = builders.get(m.mint);
       if (!tb) return;                 // not a token we're tracking
       tb.note(m);

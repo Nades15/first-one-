@@ -137,8 +137,10 @@ async function runLive(args, store, cfg, envVars) {
     unsubscribe: (mint) => src.unsubscribeToken(mint),
   });
 
+  // Helius websocket: derive wss from the RPC url (same host, api-key carried).
+  const wsUrl = String(envVars.HELIUS_RPC_URL).replace(/^https:\/\//i, 'wss://');
   const src = feed.createWsSource({
-    url: cfg.FEED.wsUrl,
+    url: wsUrl, programId: cfg.FEED.pumpProgramId, commitment: cfg.FEED.commitment,
     reconnectMinMs: cfg.FEED.reconnectMinMs, reconnectMaxMs: cfg.FEED.reconnectMaxMs,
     onMessage: (raw) => {
       const t = nowRel();
@@ -148,7 +150,6 @@ async function runLive(args, store, cfg, envVars) {
     onStatus: (s) => { if (!s.connected) console.log('feed disconnected — reconnecting…'); },
   });
   src.start();
-  src.subscribeNewToken();
 
   // holder poller (open positions only), throttled
   const holderPoller = feed.createHolderPoller({
@@ -201,7 +202,7 @@ function buildState(pipe, risk, store, src, signer, broker) {
   return {
     mode: risk.mode(),
     feed: { connected: src.connected(), lastMsgAgoMs: Math.round(src.lastMsgAgoMs()),
-      watched: snap.watched.length, unknownMsgs: snap.stats.unknownMsgs, launches: snap.stats.launches },
+      watched: snap.watched.length, trades: snap.stats.trades, launches: snap.stats.launches },
     gate,
     ledger: risk.ledgerState(),
     positions: snap.positions,
@@ -221,14 +222,12 @@ async function main() {
 
   if (args.replay) { runReplay(args.replay, store, cfg); return; }
 
+  // HELIUS_RPC_URL is now required even in paper mode — it's the market data
+  // source. The wallet key is still only required to arm live trading.
   const envVars = env.load(path.join(__dirname));
-  if (!args.recordOnly) {
-    try { env.validate(envVars, { requireWallet: args.live }); }
-    catch (e) {
-      if (args.live) { console.error(e.message); process.exit(1); }
-      console.log('Note: ' + e.message.split('\n')[0] + ' (paper mode continues; live needs it.)');
-    }
-  }
+  try { env.validate(envVars, { requireWallet: args.live }); }
+  catch (e) { console.error(e.message); process.exit(1); }
+
   await runLive(args, store, cfg, envVars);
 }
 
