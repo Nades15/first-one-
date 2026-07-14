@@ -6,6 +6,9 @@ livebot/.env.*
 !livebot/.env.example
 livebot/data/
 
+# Fairline runtime data (trade log, ledger, recorded sessions)
+fairline/data/
+
 # Node
 node_modules/
 npm-debug.log*

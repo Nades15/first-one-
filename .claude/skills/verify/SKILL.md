@@ -1,14 +1,15 @@
 ---
 name: verify
-description: How to run and verify the apps in this repo (Lumen at root, tradebot/, scanner/, scalper/, and the livebot/ Node sniper).
+description: How to run and verify the apps in this repo (Lumen at root, tradebot/, scanner/, scalper/, and the livebot/ + fairline/ Node bots).
 ---
 
 # Verifying this repo
 
 The first four apps (Lumen, tradebot, scanner, scalper) are no-build static
 sites: vanilla HTML/CSS/JS, state in localStorage, IIFE modules loaded via
-script tags. `livebot/` is different — a Node.js process (CommonJS) that reuses
-`scalper/js/exit.js` as its exit engine; see its own section below.
+script tags. `livebot/` and `fairline/` are different — Node.js processes
+(CommonJS); Livebot reuses `scalper/js/exit.js` as its exit engine, Fairline
+is self-contained. See their own sections below.
 
 ## Serve
 
@@ -58,6 +59,8 @@ node --test scalper/test/sim.test.js scalper/test/exit.test.js scalper/test/trad
 node --test livebot/test/feed.test.js livebot/test/paperBroker.test.js \
   livebot/test/sniper.test.js livebot/test/risk.test.js \
   livebot/test/store.test.js livebot/test/replay.test.js
+# fairline — a glob works (or list the files):
+node --test fairline/test/*.test.js
 ```
 
 ## livebot (Node sniper, paper-first)
@@ -87,3 +90,29 @@ zero console errors. `liveBroker.js`/`jupiter.js` require `@solana/web3.js`
 refuse live mode if `.env` is tracked; the per-trade cap is a frozen 0.05 SOL
 constant in `risk.js`; replay must use a throwaway store so it can't inflate
 the go-live gate.
+
+## fairline (Node prediction-market paper trader)
+
+A Node process that prices Polymarket/Kalshi short-horizon crypto markets off
+a live spot feed and paper-trades mispricings. Paper-ONLY — no live broker
+exists in the codebase. Like livebot it runs locally, not on GitHub Pages. In
+the sandbox the exchange websockets and market APIs may be blocked, so verify
+via **mock mode** and **replay** (both fully offline):
+
+```bash
+# deterministic full-pipeline replay of the committed fixture → 1 settled trade
+node fairline/index.js --replay fairline/test/fixtures/session.jsonl
+# expect: "Replay complete: 319 events → 1 trade(s)" and a SETTLED WON line, pnl 8.10 USD
+
+# live-dashboard demo against a seeded synthetic world (no network):
+node fairline --mock     # dashboard on 127.0.0.1:8788; vol warms ~60s, then entries
+```
+
+Dashboard checks (Playwright, 420×860): spot tiles, the stats-gate bar,
+`.mkt-row`s for watched markets, `.pos-card`s once entries land, the
+calibration card, a working `#panic` POST, zero console errors.
+
+**Safety invariants to keep green:** root `.gitignore` must list
+`fairline/data/`; the per-trade stake ceiling is a frozen $10 constant in
+`fairline/js/risk.js`; replay AND `--mock` must both use throwaway stores so
+neither can inflate the stats gate (mock's planted mispricings always win).
