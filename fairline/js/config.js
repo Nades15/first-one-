@@ -66,6 +66,8 @@ const CONFIG = {
     exitFlipEdge: 0.05,            // early exit when the book over-prices our side by this
     cooldownMs: 60e3,              // per-market pause after any fill
     maxPerMarket: 1,               // one open position per market
+    minEntryPrice: 0,              // entry price band — cheap longshots are model-
+    maxEntryPrice: 1,              // overconfidence territory; 0/1 disables the band
   },
 
   /* -------------------------------- trading ------------------------------- */

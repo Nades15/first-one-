@@ -54,6 +54,22 @@ test('guards: no fair, stale book, tau window, cooldown, thin book, tiny size', 
   assert.equal(evaluate(Object.assign(base(), { fair: 0.62, book: book(1000, 0.5, 0.55, 2) })).reason, 'THIN_BOOK');
 });
 
+test('price band: edge outside the band is refused as PRICE_BAND', () => {
+  const banded = dcfg({ STRATEGY: { minEntryPrice: 0.20, maxEntryPrice: 0.85 } });
+  // cheap longshot: ask 6¢ vs fair 20% is a fat raw edge, but out of band
+  const cheap = evaluate(Object.assign(base(), { fair: 0.20, book: book(1000, 0.03, 0.06), cfg: banded }));
+  assert.equal(cheap.action, null);
+  assert.equal(cheap.reason, 'PRICE_BAND');
+  // same setup with the band off (defaults) takes the trade
+  assert.equal(evaluate(Object.assign(base(), { fair: 0.20, book: book(1000, 0.03, 0.06) })).action, 'buy_yes');
+  // in-band entries are untouched by the band
+  assert.equal(evaluate(Object.assign(base(), { fair: 0.62, cfg: banded })).action, 'buy_yes');
+  // NO side out of band: noAsk 0.50 > maxEntryPrice 0.45 ⇒ PRICE_BAND
+  const tight = dcfg({ STRATEGY: { minEntryPrice: 0.20, maxEntryPrice: 0.45 } });
+  const no = evaluate(Object.assign(base(), { fair: 0.40, cfg: tight }));
+  assert.equal(no.reason, 'PRICE_BAND');
+});
+
 test('holding: exits only when the book over-prices our side by exitFlipEdge', () => {
   const posYes = { side: 'yes', avgPrice: 0.55, contracts: 18 };
   // bid 0.50 vs fair 0.40 → bid − fair = 0.10 ≥ 0.05 ⇒ take it

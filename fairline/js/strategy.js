@@ -61,12 +61,22 @@ function evaluate(opts) {
   const edgeNo = q.noAsk != null
     ? (1 - fair) - q.noAsk - feePerContract(market.platform, q.noAsk, cfg.fees) : -Infinity;
 
-  const best = edgeYes >= edgeNo
-    ? { side: 'yes', edge: edgeYes, price: q.yesAsk, depth: q.yesAskSize }
-    : { side: 'no', edge: edgeNo, price: q.noAsk, depth: q.noAskSize };
+  /* Entry price band: very cheap contracts are where a terminal-value model
+   * is most overconfident (tails), very rich ones where fees eat the payoff.
+   * Defaults 0/1 disable the band. A side outside the band can't be taken. */
+  const lo = S.minEntryPrice || 0, hi = S.maxEntryPrice != null ? S.maxEntryPrice : 1;
+  const inBand = p => p != null && p >= lo && p <= hi;
+  const cands = [
+    { side: 'yes', edge: edgeYes, price: q.yesAsk, depth: q.yesAskSize, ok: inBand(q.yesAsk) },
+    { side: 'no', edge: edgeNo, price: q.noAsk, depth: q.noAskSize, ok: inBand(q.noAsk) },
+  ].filter(c => c.ok).sort((a, b) => b.edge - a.edge);
+  const best = cands[0];
 
-  if (!(best.edge >= S.minEdge)) {
-    return hold('NO_EDGE', { q, edgeYes: round(edgeYes), edgeNo: round(edgeNo) });
+  if (!best || !(best.edge >= S.minEdge)) {
+    // Distinguish "no edge anywhere" from "edge exists but only out of band".
+    const rawBest = Math.max(edgeYes, edgeNo);
+    const reason = rawBest >= S.minEdge && (!best || best.edge < S.minEdge) ? 'PRICE_BAND' : 'NO_EDGE';
+    return hold(reason, { q, edgeYes: round(edgeYes), edgeNo: round(edgeNo) });
   }
   if (best.depth < cfg.books.minDepthContracts) {
     return hold('THIN_BOOK', { q, edgeYes: round(edgeYes), edgeNo: round(edgeNo) });
