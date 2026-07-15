@@ -10,3 +10,9 @@ livebot/data/
 node_modules/
 npm-debug.log*
 .DS_Store
+
+# Python (backtest/)
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

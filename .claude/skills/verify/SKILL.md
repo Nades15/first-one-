@@ -1,6 +1,6 @@
 ---
 name: verify
-description: How to run and verify the apps in this repo (Lumen at root, tradebot/, scanner/, scalper/, and the livebot/ Node sniper).
+description: How to run and verify the apps in this repo (Lumen at root, tradebot/, scanner/, scalper/, the livebot/ Node sniper, and the backtest/ Python research project).
 ---
 
 # Verifying this repo
@@ -59,6 +59,23 @@ node --test livebot/test/feed.test.js livebot/test/paperBroker.test.js \
   livebot/test/sniper.test.js livebot/test/risk.test.js \
   livebot/test/store.test.js livebot/test/replay.test.js
 ```
+
+## backtest (Python, research only)
+
+`backtest/` is a BTC EMA-crossover backtest — pandas/numpy/matplotlib, no
+orders ever (see `backtest/CLAUDE.md`). Verify with:
+
+```bash
+cd backtest
+pip install -r requirements.txt
+python -m pytest            # deterministic unit + pipeline tests, no network
+python run_backtest.py      # full run off the cached data/btc_usd_daily.csv
+```
+
+The run must work offline from the CSV cache; only `python data.py --refresh`
+touches the network (Coinbase public API, Yahoo fallback). Outputs regenerate
+into `backtest/results/` — REPORT.md, grid_report.csv, equity_curve.png,
+trades CSV.
 
 ## livebot (Node sniper, paper-first)
 
