@@ -35,6 +35,23 @@ function detectAsset(text) {
 const BARRIER_RE = /\b(reach|hit|touch|dip|flip)\b/i;
 const num = v => { const n = Number(v); return isFinite(n) ? n : NaN; };
 
+/* Up-or-down window length from the title's time range — Polymarket runs
+ * 5m / 15m / hourly series and the range in the question ("…July 15,
+ * 3:35PM-3:40PM ET") is the only reliable source of the window length.
+ * Returns ms, or null when no plausible range is present (old hourly titles
+ * carry a single time; callers fall back to cfg.updownWindowMs). */
+const WINDOW_RANGE_RE = /(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\s*[-–—]\s*(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i;
+
+function parseWindowMs(text) {
+  const m = WINDOW_RANGE_RE.exec(text || '');
+  if (!m) return null;
+  const mins = (h, mm, ap) =>
+    ((Number(h) % 12) + (ap.toUpperCase() === 'PM' ? 12 : 0)) * 60 + (mm ? Number(mm) : 0);
+  const dur = (mins(m[4], m[5], m[6]) - mins(m[1], m[2], m[3]) + 1440) % 1440;
+  const ms = dur * 60e3;
+  return ms >= 60e3 && ms <= 12 * 3600e3 ? ms : null;
+}
+
 function parseDollars(s) {
   const n = Number(String(s).replace(/[,$]/g, ''));
   return isFinite(n) && n > 0 ? n : null;
@@ -78,9 +95,10 @@ function normalizePolymarket(raws, nowMs, cfg) {
     } else if (below && parseDollars(below[1])) {
       out.push(Object.assign(base, { kind: 'below', floor: null, cap: parseDollars(below[1]) }));
     } else if (/\bup or down\b/i.test(text)) {
+      const windowMs = parseWindowMs(raw.question) || cfg.updownWindowMs;
       out.push(Object.assign(base, {
         kind: 'updown', floor: null, cap: null,
-        windowStart: closeTime - cfg.updownWindowMs,
+        windowStart: closeTime - windowMs,
       }));
     }
   }
@@ -216,6 +234,6 @@ function createDiscovery(opts) {
 }
 
 module.exports = {
-  detectAsset, normalizePolymarket, normalizeKalshi, selectWatchlist,
+  detectAsset, parseWindowMs, normalizePolymarket, normalizeKalshi, selectWatchlist,
   fetchPolymarketRaw, fetchKalshiRaw, createDiscovery,
 };

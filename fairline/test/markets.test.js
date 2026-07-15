@@ -2,7 +2,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { detectAsset, normalizePolymarket, normalizeKalshi, selectWatchlist } = require('../js/markets.js');
+const { detectAsset, parseWindowMs, normalizePolymarket, normalizeKalshi, selectWatchlist } = require('../js/markets.js');
 const { CONFIG } = require('../js/config.js');
 
 const NOW = Date.UTC(2026, 6, 14, 12, 0, 0);
@@ -41,6 +41,29 @@ test('polymarket: up-or-down gets a windowStart and no strike yet', () => {
   assert.equal(out[0].floor, null);
   assert.equal(out[0].windowStart, NOW + 3600e3 - DCFG.updownWindowMs);
   assert.equal(out[0].yesLabel, 'Up');
+});
+
+test('up-or-down window length parses from the real title formats', () => {
+  // real 5m / 15m titles observed live on 2026-07-15
+  assert.equal(parseWindowMs('Bitcoin Up or Down - July 15, 3:35PM-3:40PM ET'), 5 * 60e3);
+  assert.equal(parseWindowMs('Solana Up or Down - July 15, 3:30PM-3:45PM ET'), 15 * 60e3);
+  assert.equal(parseWindowMs('Ethereum Up or Down - July 15, 3PM-4PM ET'), 3600e3);
+  assert.equal(parseWindowMs('noon wrap 11:55AM-12:00PM ET'), 5 * 60e3);
+  assert.equal(parseWindowMs('midnight wrap 11:55PM-12:00AM ET'), 5 * 60e3);
+  assert.equal(parseWindowMs('Bitcoin Up or Down - July 15, 3PM ET'), null);   // single time — no range
+  assert.equal(parseWindowMs(''), null);
+
+  const raws = [
+    { id: '10', question: 'Bitcoin Up or Down - July 15, 3:35PM-3:40PM ET',
+      slug: 'bitcoin-up-or-down-july-15-335pm-et', endDate: iso(NOW + 5 * 60e3),
+      outcomes: '["Up","Down"]', clobTokenIds: '["777","888"]' },
+    { id: '11', question: 'Ethereum Up or Down - July 15, 12PM ET',            // old hourly style
+      slug: 'ethereum-up-or-down', endDate: iso(NOW + 3600e3),
+      outcomes: '["Up","Down"]', clobTokenIds: '["999","000"]' },
+  ];
+  const out = normalizePolymarket(raws, NOW, DCFG);
+  assert.equal(out[0].windowStart, NOW);                                       // close − 5m
+  assert.equal(out[1].windowStart, NOW + 3600e3 - DCFG.updownWindowMs);        // fallback: hourly
 });
 
 test('polymarket: barrier wordings and junk are excluded', () => {
