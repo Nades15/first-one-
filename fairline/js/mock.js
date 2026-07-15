@@ -132,6 +132,59 @@ function createMockSource(opts) {
   };
 }
 
+/* Drive a pipeline from the mock world on a VIRTUAL clock — no timers, no
+ * wall time. Mirrors createMockSource's cadence exactly (spot every tick,
+ * books every 2.5s, sweeps every 30s) but fast-forwards simulated hours in
+ * seconds of CPU, so a settings vector can be measured on hundreds of
+ * settled trades instead of a dozen. Deterministic for a given seed.
+ *
+ *   runVirtual(world, pipe, {
+ *     tickMs,                     // engine cadence (default 1000)
+ *     t0,                         // virtual epoch (default 2026-01-01 UTC)
+ *     maxSimMs,                   // hard stop (default 14 virtual days)
+ *     onTime(t),                  // called each tick BEFORE pipeline calls —
+ *                                 //   wire the risk manager's clock to this
+ *     until(t),                   // checked every sweep; true stops the run
+ *   }) → { t0, simMs }                                                    */
+function runVirtual(world, pipe, opts) {
+  const o = opts || {};
+  const tickMs = o.tickMs || 1000;
+  const t0 = o.t0 != null ? o.t0 : Date.UTC(2026, 0, 1);
+  const maxSimMs = o.maxSimMs || 14 * 24 * 3600e3;
+  const onTime = o.onTime || (() => {});
+  const until = o.until || (() => false);
+
+  let markets = [];
+  function sweep(t) {
+    markets = markets.filter(m => m.closeTime > t);
+    if (markets.length < 6) markets = markets.concat(world.makeMarkets(t, 6 - markets.length));
+    pipe.onMarkets(markets.slice(), t);
+  }
+
+  onTime(t0);
+  sweep(t0);
+  for (const [a, p] of Object.entries(world.stepSpot(0))) pipe.onSpot(a, p, t0);
+
+  let t = t0, nextBook = t0 + 2500, nextSweep = t0 + 30e3;
+  while (t - t0 < maxSimMs) {
+    t += tickMs;
+    onTime(t);
+    const prices = world.stepSpot(tickMs / 1000);
+    for (const [a, p] of Object.entries(prices)) pipe.onSpot(a, p, t);
+    if (t >= nextBook) {
+      for (const m of markets) if (m.closeTime > t) pipe.onBook(m.key, world.makeBook(m, t));
+      nextBook += 2500;
+    }
+    if (t >= nextSweep) {
+      sweep(t);
+      nextSweep += 30e3;
+      if (until(t)) break;
+    }
+    pipe.onTick(t);
+  }
+  return { t0, simMs: t - t0 };
+}
+
 function round2(x) { return Math.round(x * 100) / 100; }
 
-module.exports = { createMockWorld, createMockSource, MOCK_ASSETS, SIGMA_PER_SQRT_SEC };
+module.exports = { createMockWorld, createMockSource, runVirtual, MOCK_ASSETS, SIGMA_PER_SQRT_SEC };

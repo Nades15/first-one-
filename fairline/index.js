@@ -6,6 +6,9 @@
  *
  *   node fairline                 paper-trade the live markets (default)
  *   node fairline --mock          offline synthetic world, no network
+ *   node fairline --sim [N]       fast-forward the mock world on a virtual
+ *                                 clock until N settled trades (default 100);
+ *                                 --seed M picks the world's random tape
  *   node fairline --replay FILE   replay a recorded session deterministically
  *   node fairline --record-only   just record the feeds, no trading
  */
@@ -24,11 +27,14 @@ const { createBookPoller } = require('./js/books.js');
 const { createRecorder, createReplaySource } = require('./js/replay.js');
 
 function parseArgs(argv) {
-  const a = { mock: false, replay: null, recordOnly: false };
+  const a = { mock: false, replay: null, recordOnly: false, sim: null, seed: 42 };
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === '--mock') a.mock = true;
     else if (argv[i] === '--replay') a.replay = argv[++i];
     else if (argv[i] === '--record-only') a.recordOnly = true;
+    else if (argv[i] === '--sim') {
+      a.sim = /^\d+$/.test(argv[i + 1] || '') ? Number(argv[++i]) : 100;
+    } else if (argv[i] === '--seed') a.seed = Number(argv[++i]) || 42;
   }
   return a;
 }
@@ -64,6 +70,96 @@ function runReplay(file, cfg) {
   console.log('Net: ' + g.paperNetUsd.toFixed(2) + ' USD over ' + g.paperTrades + ' settled trades.');
   return trades;
 }
+
+/* --------------------------------- sim ---------------------------------- */
+
+/* Fast-forward the mock world on a virtual clock until `target` settled
+ * trades (or 14 virtual days). Same pipeline, same strategy, same fees as
+ * --mock — just no timers, so hundreds of settles take seconds. Throwaway
+ * store: sim results never touch the real stats gate. Returns the summary
+ * so tooling (grid searches) can call it programmatically. */
+function runSim(cfg, opts) {
+  const fs = require('fs');
+  const os = require('os');
+  const { createMockWorld, runVirtual } = require('./js/mock.js');
+  const store = createStore({ dir: fs.mkdtempSync(path.join(os.tmpdir(), 'fairline-sim-')) });
+  let simT = 0;
+  const risk = createRisk({ cfg, store, now: () => simT });
+  const broker = createPaperBroker(cfg);
+  const pipe = createPipeline({ cfg, store, risk, broker, log: () => {} });
+  const world = createMockWorld({ seed: opts.seed });
+  const target = opts.target || 100;
+
+  const res = runVirtual(world, pipe, {
+    tickMs: cfg.ENGINE.tickMs,
+    onTime: t => { simT = t; },
+    until: t => pipe.snapshot(t).stats.settles >= target,
+  });
+  return summarizeSim(store.allTrades(), store.calibration(0.1), res, opts.seed);
+}
+
+function summarizeSim(trades, calibration, res, seed) {
+  const settled = trades.filter(t => t.won != null);
+  const exits = trades.filter(t => t.won == null);
+  const wins = settled.filter(t => t.won).length;
+  const sum = a => a.reduce((x, t) => x + t.pnlNetUsd, 0);
+  const pnls = trades.map(t => t.pnlNetUsd);
+  const net = sum(trades);
+  const mean = trades.length ? net / trades.length : 0;
+  const sd = trades.length > 1
+    ? Math.sqrt(pnls.reduce((a, p) => a + (p - mean) * (p - mean), 0) / (pnls.length - 1)) : 0;
+
+  // 30-minute virtual windows: the honest answer to "is every window green?"
+  const windows = new Map();
+  for (const t of trades) {
+    const w = Math.floor((t.tExit - res.t0) / 1800e3);
+    windows.set(w, (windows.get(w) || 0) + t.pnlNetUsd);
+  }
+  const wVals = Array.from(windows.values());
+  const wPos = wVals.filter(v => v > 0).length;
+
+  const byPrice = {};
+  for (const t of trades) {
+    const b = t.avgPrice < 0.35 ? '<35c' : t.avgPrice < 0.55 ? '35-55c' : t.avgPrice < 0.75 ? '55-75c' : '75c+';
+    byPrice[b] = round2((byPrice[b] || 0) + t.pnlNetUsd);
+  }
+
+  return {
+    seed,
+    simHours: round2(res.simMs / 3600e3),
+    trades: trades.length, settled: settled.length, exits: exits.length,
+    wins, losses: settled.length - wins,
+    winRate: settled.length ? round2(wins / settled.length * 100) : null,
+    netUsd: round2(net),
+    settledPnl: round2(sum(settled)), exitPnl: round2(sum(exits)),
+    feesUsd: round2(trades.reduce((a, t) => a + (t.feeUsd || 0), 0)),
+    evPerTrade: round2(mean),
+    evStderr: trades.length ? round2(sd / Math.sqrt(trades.length)) : null,
+    windows: windows.size, windowsPositive: wPos,
+    windowPosPct: windows.size ? round2(wPos / windows.size * 100) : null,
+    byPrice, calibration,
+  };
+}
+
+function printSim(s) {
+  console.log('Sim (seed ' + s.seed + '): ' + s.simHours + ' virtual hours → ' + s.trades +
+    ' trades (' + s.settled + ' settled, ' + s.exits + ' early exits)');
+  console.log('  settled W-L ' + s.wins + '-' + s.losses + ' (' + s.winRate + '%) | net ' +
+    money(s.netUsd) + ' (settled ' + money(s.settledPnl) + ', exits ' + money(s.exitPnl) +
+    ') | fees $' + s.feesUsd.toFixed(2));
+  console.log('  EV/trade ' + money(s.evPerTrade) + ' ± ' + s.evStderr + ' (stderr)');
+  console.log('  30-min windows: ' + s.windowsPositive + '/' + s.windows + ' positive (' +
+    s.windowPosPct + '%) — no config makes this 100%; variance is real');
+  console.log('  PnL by entry price: ' + JSON.stringify(s.byPrice));
+  console.log('  calibration (model% → actual%, n):');
+  for (const b of s.calibration) {
+    console.log('    ' + (b.predicted * 100).toFixed(0) + '% → ' + (b.actual * 100).toFixed(0) +
+      '% (n=' + b.n + ')');
+  }
+}
+
+function money(v) { return (v >= 0 ? '+$' : '−$') + Math.abs(v).toFixed(2); }
+function round2(x) { return Math.round(x * 100) / 100; }
 
 /* ------------------------------ live/mock ------------------------------- */
 
@@ -177,6 +273,12 @@ function main() {
   let store = createStore({});
   const cfg = loadConfig(store);
   if (args.replay) { runReplay(args.replay, cfg); return; }
+  if (args.sim != null) {
+    console.log('Virtual-clock sim: target ' + args.sim + ' settled trades, seed ' + args.seed +
+      ' (mock world — planted mispricings, throwaway store).');
+    printSim(runSim(cfg, { target: args.sim, seed: args.seed }));
+    return;
+  }
   if (args.mock) {
     // Mock trades are wins against PLANTED mispricings — they must never
     // count toward the stats gate, so mock runs get a throwaway store.
@@ -189,4 +291,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { parseArgs, runReplay, loadConfig, buildState };
+module.exports = { parseArgs, runReplay, runSim, loadConfig, buildState };

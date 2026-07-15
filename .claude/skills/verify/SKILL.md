@@ -106,6 +106,9 @@ node fairline/index.js --replay fairline/test/fixtures/session.jsonl
 
 # live-dashboard demo against a seeded synthetic world (no network):
 node fairline --mock     # dashboard on 127.0.0.1:8788; vol warms ~60s, then entries
+
+# virtual-clock statistics run (no network, sub-second): N settled trades + summary
+node fairline --sim 200 --seed 42
 ```
 
 Dashboard checks (Playwright, 420×860): spot tiles, the stats-gate bar,

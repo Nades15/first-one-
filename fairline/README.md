@@ -59,6 +59,9 @@ npm install          # just ws
 
 node fairline                # paper-trade live markets (from the repo root)
 node fairline --mock         # offline synthetic world — no network, no keys
+node fairline --sim 500      # fast-forward the mock world on a virtual clock
+                             #   until 500 settled trades (seconds of CPU);
+                             #   --seed N picks the world's random tape
 node fairline --replay FILE  # deterministic replay of a recorded session
 node fairline --record-only  # record the live feeds without trading
 ```
@@ -71,6 +74,15 @@ guards — positions open, ride to resolution, and settle into the trade log.
 `--mock` runs the identical pipeline against a seeded synthetic world with
 **planted** mispricings, so entries/settlements happen within minutes. It
 proves the plumbing, not the edge.
+
+`--sim` is the tuning instrument: the same mock world driven on a virtual
+clock, reporting EV per trade (with a standard error), win rate, PnL by
+entry-price bucket, the calibration table, and the fraction of 30-minute
+windows that finished positive. Measure a settings change on 500+ settled
+trades across several `--seed`s before believing it — single half-hour
+sessions are coin flips. Tuning hard against the mock's planted bias is
+still curve-fitting to a toy; use it to find robust *regions*, not exact
+decimals.
 
 ## The stats gate
 
