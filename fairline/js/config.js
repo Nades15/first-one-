@@ -68,6 +68,9 @@ const CONFIG = {
     maxPerMarket: 1,               // one open position per market
     minEntryPrice: 0,              // entry price band — cheap longshots are model-
     maxEntryPrice: 1,              // overconfidence territory; 0/1 disables the band
+    minEntryFair: 0,               // only trade when the model gives OUR side at least
+                                   // this probability (0 disables) — the sub-60% zone
+                                   // proved miscalibrated on live 5-minute markets
   },
 
   /* -------------------------------- trading ------------------------------- */

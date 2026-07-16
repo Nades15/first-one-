@@ -70,6 +70,20 @@ test('price band: edge outside the band is refused as PRICE_BAND', () => {
   assert.equal(no.reason, 'PRICE_BAND');
 });
 
+test('confidence floor: sufficient edge below minEntryFair is refused', () => {
+  const floored = dcfg({ STRATEGY: { minEntryFair: 0.65 } });
+  // fair 0.62 vs ask 0.55 clears minEdge but not the floor
+  const d = evaluate(Object.assign(base(), { fair: 0.62, cfg: floored }));
+  assert.equal(d.action, null);
+  assert.equal(d.reason, 'LOW_CONFIDENCE');
+  // NO side: fair 0.40 ⇒ our side (NO) is 60% — passes a 0.60 floor, fails 0.65
+  const floor60 = dcfg({ STRATEGY: { minEntryFair: 0.60 } });
+  assert.equal(evaluate(Object.assign(base(), { fair: 0.40, cfg: floor60 })).action, 'buy_no');
+  assert.equal(evaluate(Object.assign(base(), { fair: 0.40, cfg: floored })).reason, 'LOW_CONFIDENCE');
+  // floor off (default 0) unchanged
+  assert.equal(evaluate(Object.assign(base(), { fair: 0.62 })).action, 'buy_yes');
+});
+
 test('holding: exits only when the book over-prices our side by exitFlipEdge', () => {
   const posYes = { side: 'yes', avgPrice: 0.55, contracts: 18 };
   // bid 0.50 vs fair 0.40 → bid − fair = 0.10 ≥ 0.05 ⇒ take it

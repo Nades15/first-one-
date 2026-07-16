@@ -66,16 +66,25 @@ function evaluate(opts) {
    * Defaults 0/1 disable the band. A side outside the band can't be taken. */
   const lo = S.minEntryPrice || 0, hi = S.maxEntryPrice != null ? S.maxEntryPrice : 1;
   const inBand = p => p != null && p >= lo && p <= hi;
-  const cands = [
-    { side: 'yes', edge: edgeYes, price: q.yesAsk, depth: q.yesAskSize, ok: inBand(q.yesAsk) },
-    { side: 'no', edge: edgeNo, price: q.noAsk, depth: q.noAskSize, ok: inBand(q.noAsk) },
-  ].filter(c => c.ok).sort((a, b) => b.edge - a.edge);
+  /* Confidence floor: only trade when the model gives OUR side at least
+   * minEntryFair. Live data showed the sub-60% zone (fair whipsawing around
+   * a 5-minute window's open) is where the model's precision is fiction —
+   * its ~45% calls won 15% of the time. 0 disables the floor. */
+  const minFair = S.minEntryFair || 0;
+  const raw = [
+    { side: 'yes', edge: edgeYes, price: q.yesAsk, depth: q.yesAskSize,
+      bandOk: inBand(q.yesAsk), fairOk: fair >= minFair },
+    { side: 'no', edge: edgeNo, price: q.noAsk, depth: q.noAskSize,
+      bandOk: inBand(q.noAsk), fairOk: (1 - fair) >= minFair },
+  ];
+  const cands = raw.filter(c => c.bandOk && c.fairOk).sort((a, b) => b.edge - a.edge);
   const best = cands[0];
 
   if (!best || !(best.edge >= S.minEdge)) {
-    // Distinguish "no edge anywhere" from "edge exists but only out of band".
-    const rawBest = Math.max(edgeYes, edgeNo);
-    const reason = rawBest >= S.minEdge && (!best || best.edge < S.minEdge) ? 'PRICE_BAND' : 'NO_EDGE';
+    // Name what actually blocked an otherwise-sufficient edge.
+    const blocked = raw.filter(c => c.edge >= S.minEdge && !(c.bandOk && c.fairOk));
+    const reason = !blocked.length ? 'NO_EDGE'
+      : blocked.some(c => c.bandOk && !c.fairOk) ? 'LOW_CONFIDENCE' : 'PRICE_BAND';
     return hold(reason, { q, edgeYes: round(edgeYes), edgeNo: round(edgeNo) });
   }
   if (best.depth < cfg.books.minDepthContracts) {
