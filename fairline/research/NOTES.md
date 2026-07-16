@@ -24,7 +24,14 @@
 
 - Run start Thu ~13:04 UTC: band [0.30, 0.85], minEdge 0.08, flip 0.09,
   NO confidence floor.
-- (Pending) floor 0.60 activation — record the timestamp here when applied.
+- Thu ~22:10 UTC: floor 0.60 ACTIVE (restart after silent process death at ~19:55 UTC; research dailyStopUsd raised 100→250 and the pre-floor halt flag cleared so the floored config collects overnight).
+
+## Oracle-true results (98/98 settled trades resolved, Thu 22:09 UTC)
+
+- Feed-judge accuracy: 92/98 (6 borderline flips, −$66 of phantom PnL).
+- Oracle-true settled record: 64-34, +$73.86.
+- hi-conf (model ≥60%): **58-2, +$301.23** — the edge is real, confirmed by ground truth.
+- lo-conf (<60%): 6-32, −$227.37 — floor justified conclusively.
 
 ## Files
 
