@@ -1,0 +1,41 @@
+{
+  "at": "2026-07-16T13:20:14.210Z",
+  "gate": {
+    "paperTrades": 12,
+    "paperNetUsd": -8.8578,
+    "required": 100,
+    "unlocked": false
+  },
+  "ledger": {
+    "dailyStopUsd": 100,
+    "dateUtc": "2026-07-16",
+    "realizedNetUsd": -8.8578,
+    "trades": 12,
+    "halted": false
+  },
+  "stats": {
+    "spotMsgs": 10278,
+    "sweeps": 16,
+    "bookUpdates": 4258,
+    "entries": 13,
+    "exits": 7,
+    "settles": 5,
+    "fillFails": 0,
+    "discoveryErrors": 0,
+    "bookErrors": 0
+  },
+  "calibration": [
+    {
+      "lo": 0.4,
+      "n": 1,
+      "predicted": 0.4488,
+      "actual": 0
+    },
+    {
+      "lo": 0.9,
+      "n": 4,
+      "predicted": 0.978,
+      "actual": 1
+    }
+  ]
+}
