@@ -33,6 +33,18 @@
 - hi-conf (model ≥60%): **58-2, +$301.23** — the edge is real, confirmed by ground truth.
 - lo-conf (<60%): 6-32, −$227.37 — floor justified conclusively.
 
+## Oracle policy grid (all 287 real entries, Thu ~22:25 UTC)
+
+Hold-to-resolution beats flip-exit at EVERY floor level. Winner installed:
+floor 0.60 + exitFlipEdge 999 → oracle-true 124-65, +$104.93 (~$0.56/trade).
+Flipped hi-conf positions would have won only 51% if held — confidence
+collapse mid-window marks entries that were bad at birth (likely taken too
+near the window open); investigate an entry-timing guard with Sunday data.
+Caveat: one afternoon, one regime; counterfactual ignores slot contention
+from longer holds.
+
+- Thu ~22:26 UTC epoch: floor 0.60 + flip OFF (hold to resolution) ACTIVE.
+
 ## Files
 
 - `cloud-weekend-trades.jsonl` — snapshot of the live paper trade log.
