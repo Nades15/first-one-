@@ -12,6 +12,8 @@
     "node": ">=20"
   },
   "dependencies": {
+    "https-proxy-agent": "^9.1.0",
+    "undici": "^8.7.0",
     "ws": "^8.18.0"
   }
 }

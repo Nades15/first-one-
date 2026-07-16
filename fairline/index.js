@@ -189,8 +189,16 @@ function run(args, store, cfg) {
     feedInfo.connected = true; feedInfo.venue = 'mock';
     console.log('Mock mode: synthetic markets with planted mispricings — plumbing demo, not edge.');
   } else {
+    const { proxySupport } = require('./js/proxy.js');
+    const px = proxySupport();
+    if (px.proxyUrl) {
+      console.log('Egress proxy detected (' + px.proxyUrl + ') — routing REST ' +
+        (px.fetchImpl ? 'OK' : 'FAILED: ' + px.fetchErr) + ', websocket ' +
+        (px.WebSocketImpl ? 'OK' : 'FAILED: ' + px.wsErr));
+    }
     const spotSrc = createSpotSource({
       cfg: cfg.SPOT,
+      WebSocketImpl: px.WebSocketImpl,
       onPrice: (asset, price, recvT) => {
         recorder.spot(asset, price, recvT);
         if (trading) pipe.onSpot(asset, price, recvT);
@@ -204,6 +212,7 @@ function run(args, store, cfg) {
 
     const poller = createBookPoller({
       cfg: Object.assign({}, cfg.BOOKS, cfg.DISCOVERY),
+      fetchImpl: px.fetchImpl,
       onBook: (key, book) => {
         recorder.book(key, book, Date.now());
         if (trading) pipe.onBook(key, book);
@@ -213,6 +222,7 @@ function run(args, store, cfg) {
 
     const discovery = createDiscovery({
       cfg: cfg.DISCOVERY,
+      fetchImpl: px.fetchImpl,
       assets: Object.keys(cfg.SPOT.assets),
       onMarkets: (list, t) => {
         recorder.markets(list, t);
