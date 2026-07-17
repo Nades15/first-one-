@@ -45,6 +45,17 @@ from longer holds.
 
 - Thu ~22:26 UTC epoch: floor 0.60 + flip OFF (hold to resolution) ACTIVE.
 
+## Overnight oracle scoring (Fri 09:55 UTC, floor+hold epoch, 239 entries)
+
+Oracle-true: 135-104 (56.5%), net −$56.04. The edge is HOUR-DEPENDENT:
+US-evening hours (22:00–00:59 UTC) went +$148 over 52 entries; the overnight
+stretch (01:00–09:59 UTC) went −$203 over 187. Mechanism hypothesis: low
+overnight volatility keeps spot pinned near each window open, so 60–70%
+model confidence is whipsaw noise and entries are coin flips bought at
+60–70¢. DECISION DEFERRED: one night is one sample — collect Fri/Sat data,
+decide a trading-hours guard (or vol-regime gate) Sunday with two nights of
+evidence. Feed-judge disagreement rate steady at ~5% (11/239).
+
 ## Files
 
 - `cloud-weekend-trades.jsonl` — snapshot of the live paper trade log.
