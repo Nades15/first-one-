@@ -1,25 +1,25 @@
 {
-  "at": "2026-07-18T21:31:53.573Z",
+  "at": "2026-07-18T22:31:50.899Z",
   "gate": {
-    "paperTrades": 858,
-    "paperNetUsd": 79.0059,
+    "paperTrades": 885,
+    "paperNetUsd": 39.4484,
     "required": 100,
     "unlocked": true
   },
   "ledger": {
     "dailyStopUsd": 250,
     "dateUtc": "2026-07-18",
-    "realizedNetUsd": 38.7506,
-    "trades": 102,
+    "realizedNetUsd": -0.8069,
+    "trades": 129,
     "halted": false
   },
   "stats": {
-    "spotMsgs": 95324,
-    "sweeps": 183,
-    "bookUpdates": 48744,
-    "entries": 82,
+    "spotMsgs": 121112,
+    "sweeps": 243,
+    "bookUpdates": 65932,
+    "entries": 108,
     "exits": 0,
-    "settles": 79,
+    "settles": 106,
     "fillFails": 0,
     "discoveryErrors": 0,
     "bookErrors": 0
@@ -45,27 +45,27 @@
     },
     {
       "lo": 0.6,
-      "n": 372,
-      "predicted": 0.6437,
-      "actual": 0.5887
+      "n": 388,
+      "predicted": 0.6441,
+      "actual": 0.5876
     },
     {
       "lo": 0.7,
-      "n": 148,
-      "predicted": 0.7405,
-      "actual": 0.6689
+      "n": 157,
+      "predicted": 0.741,
+      "actual": 0.6624
     },
     {
       "lo": 0.8,
-      "n": 61,
-      "predicted": 0.8471,
-      "actual": 0.6721
+      "n": 62,
+      "predicted": 0.8478,
+      "actual": 0.6613
     },
     {
       "lo": 0.9,
-      "n": 54,
-      "predicted": 0.9627,
-      "actual": 0.7407
+      "n": 55,
+      "predicted": 0.9621,
+      "actual": 0.7273
     }
   ]
 }
