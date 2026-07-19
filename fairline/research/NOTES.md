@@ -56,6 +56,19 @@ model confidence is whipsaw noise and entries are coin flips bought at
 decide a trading-hours guard (or vol-regime gate) Sunday with two nights of
 evidence. Feed-judge disagreement rate steady at ~5% (11/239).
 
+## REPLICATION VERDICT (Sun 09:35 UTC) — overnight bleed did NOT replicate
+
+Second overnight sample (Sat night, Sun 01:00-10:00 UTC, 145 oracle-scored):
+**88-57 (60.7%), +$2.74** — POSITIVE. Contradicts Fri night (135-104, −$203).
+Same config, same hours, opposite sign ⇒ the Fri "overnight loses" pattern
+was NOISE, not signal. A time-of-day guard would have curve-fit one night.
+HELD DECISION CORRECTLY. Real driver is VOLATILITY not the clock (Sat night
+had active crypto and traded fine). CORRECT next improvement: a realized-vol
+regime gate (stand down when vol too low to price meaningfully), NOT a
+trading-hours rule. Design + backtest against both nights' recorded tapes
+before installing. Note: window partial (2 markets unresolved; ~02:25 UTC
+container restart cost the first overnight hour).
+
 ## Files
 
 - `cloud-weekend-trades.jsonl` — snapshot of the live paper trade log.
