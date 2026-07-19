@@ -1,5 +1,5 @@
 {
-  "at": "2026-07-19T10:31:37.152Z",
+  "at": "2026-07-19T11:32:23.343Z",
   "gate": {
     "paperTrades": 1102,
     "paperNetUsd": 141.528,
@@ -14,9 +14,9 @@
     "halted": false
   },
   "stats": {
-    "spotMsgs": 1669,
-    "sweeps": 6,
-    "bookUpdates": 765,
+    "spotMsgs": 64,
+    "sweeps": 1,
+    "bookUpdates": 62,
     "entries": 0,
     "exits": 0,
     "settles": 0,
