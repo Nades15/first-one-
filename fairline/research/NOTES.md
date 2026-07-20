@@ -85,6 +85,34 @@ double-count markets at boundaries; extreme bins tiny n. Infrastructure
 (sigma logging) KEPT - live desktop run now accumulates clean
 oracle-scorable sigma data to revisit with a bigger sample later.
 
+## FULL-POPULATION ORACLE VERDICT (Sun, desktop pickup) — NO PROVEN EDGE
+
+Replayed ALL weekend tapes under uniform final config (band .30-.85,
+floor .60, hold), settled every trade against Polymarket oracle. This is
+the most rigorous number we have and it is NEGATIVE:
+  vol 10min: 810 trades, 61.4% win, net -151 (-0.19/trade)
+  vol 2min (best log-loss): net -357; vol 3min: net -238.
+Shorter vol IMPROVES calibration (log-loss 0.573 vs 0.580) but WORSENS
+PnL - more reactive fair fires on spurious edges. Model beats coin flip
+(0.573 vs 0.693 log-loss on 1528 oracle-resolved markets) = real
+predictive skill, but the skill is SMALLER THAN THE SPREAD we cross.
+
+Earlier positive oracle numbers (+104.93 Thu, +0.56/trade) were favorable
+selection: the live daily-stop cut losing streaks + small samples. The
+live desktop drawdown (-49 over 27) matches the true -0.19/trade.
+
+minEdge sweep (10min vol, oracle): 8c=-151, 12c=-227, 16c=-106, 20c=-146,
+25c=+143 (196 trades, +0.73/trade). ONLY the extreme 25c bucket is
+positive, and NON-MONOTONICALLY - overfitting signature. Also 25c gaps
+likely = thin/stale books where paper fills are optimistic. Treat as an
+UNCONFIRMED hypothesis, not a strategy.
+
+CONCLUSION: no demonstrated robust positive edge. DO NOT risk real money.
+The model has skill; costs eat it. Only real lead = large-divergence
+regime, which must be replicated out-of-sample on fresh data AND checked
+for fill realism (book depth at entry) before any belief. Paper run keeps
+collecting because it is free and generates independent test data.
+
 ## Files
 
 - `cloud-weekend-trades.jsonl` — snapshot of the live paper trade log.

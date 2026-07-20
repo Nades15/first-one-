@@ -1,0 +1,13 @@
+up/down markets sampled at ~180s lead: 1528 of 2469
+oracle-resolved: 1528 
+
+halfLife(min)   n     logloss   brier   meanFair  meanActual
+  1             1528    0.5761   0.1916     0.495       0.469
+  2             1528    0.5728   0.1912     0.496       0.469
+  3             1528    0.5738   0.1913     0.496       0.469
+  5             1528    0.5769   0.1916     0.496       0.469
+  10            1528    0.5797   0.1915     0.496       0.469
+  20            1528    0.5812   0.1912     0.496       0.469
+
+Best half-life by log-loss: 2 min (logloss 0.5728)
+Current config uses 10 min. Coin-flip baseline logloss = 0.6931
