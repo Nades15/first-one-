@@ -167,7 +167,9 @@ function createPipeline(opts) {
         continue;
       }
 
+      const sig = spot.get(m.asset);
       const d = evaluate({ market: m, book: books.get(key) || null, fair,
+        sigma: sig ? sig.vol.sigmaPerSqrtSec() : null,
         position: positions.get(key), t, lastFillT: lastFillT.get(key) || 0, cfg: dcfg() });
       m._status = positions.has(key) ? 'open' : d.reason;
       m._decision = d;

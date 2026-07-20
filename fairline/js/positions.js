@@ -19,6 +19,8 @@ function createPositions() {
        * what the calibration chart tests against realized outcomes. */
       entryFair: round(fill.side === 'yes' ? decision.fair : 1 - decision.fair),
       entryEdge: decision.edge,
+      /* realized vol at entry (%/√hour) — feeds the volatility-gate analysis */
+      entrySigmaHourPct: decision.sigma != null ? round(decision.sigma * 6000) : null,
       tEntry: t,
       markUsd: 0,
     };
@@ -67,7 +69,7 @@ function createPositions() {
       side: p.side, contracts: p.contracts,
       avgPrice: p.avgPrice, costUsd: p.costUsd,
       feeUsd: round(p.feeUsd + exit.exitFeeUsd),
-      entryFair: p.entryFair, entryEdge: p.entryEdge,
+      entryFair: p.entryFair, entryEdge: p.entryEdge, entrySigmaHourPct: p.entrySigmaHourPct,
       tEntry: p.tEntry, tExit: exit.tExit,
       exitReason: exit.exitReason, exitPrice: exit.exitPrice != null ? exit.exitPrice : null,
       spotAtClose: exit.spotAtClose, won: exit.won,

@@ -84,6 +84,22 @@ test('confidence floor: sufficient edge below minEntryFair is refused', () => {
   assert.equal(evaluate(Object.assign(base(), { fair: 0.62 })).action, 'buy_yes');
 });
 
+test('volatility gate: entries below minSigmaHourPct are refused as LOW_VOL', () => {
+  const gated = dcfg({ STRATEGY: { minSigmaHourPct: 0.15 } });
+  const lowVol = 0.10 / 6000;    // 0.10 %/√h in per-√sec — below the 0.15 floor
+  const okVol = 0.30 / 6000;     // 0.30 %/√h — above it
+  // strong edge, but vol too low ⇒ LOW_VOL
+  const d = evaluate(Object.assign(base(), { fair: 0.62, sigma: lowVol, cfg: gated }));
+  assert.equal(d.action, null);
+  assert.equal(d.reason, 'LOW_VOL');
+  // same edge with adequate vol ⇒ trades
+  assert.equal(evaluate(Object.assign(base(), { fair: 0.62, sigma: okVol, cfg: gated })).action, 'buy_yes');
+  // gate off (default) ignores sigma entirely
+  assert.equal(evaluate(Object.assign(base(), { fair: 0.62, sigma: lowVol })).action, 'buy_yes');
+  // null sigma never blocks (feed gap shouldn't masquerade as low vol)
+  assert.equal(evaluate(Object.assign(base(), { fair: 0.62, sigma: null, cfg: gated })).action, 'buy_yes');
+});
+
 test('holding: exits only when the book over-prices our side by exitFlipEdge', () => {
   const posYes = { side: 'yes', avgPrice: 0.55, contracts: 18 };
   // bid 0.50 vs fair 0.40 → bid − fair = 0.10 ≥ 0.05 ⇒ take it

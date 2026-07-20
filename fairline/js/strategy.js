@@ -26,8 +26,9 @@ function feePerContract(platform, price, fees) {
  *              sizeUsd } */
 function evaluate(opts) {
   const { market, book, fair, position, t, lastFillT, cfg } = opts;
+  const sigma = opts.sigma != null ? opts.sigma : null;   // realized vol per √sec at decision time
   const S = cfg.strategy;
-  const hold = (reason, extra) => Object.assign({ action: null, reason, fair }, extra);
+  const hold = (reason, extra) => Object.assign({ action: null, reason, fair, sigma }, extra);
 
   if (fair == null || !isFinite(fair)) return hold('UNPRICEABLE');
   if (!book || !book.bids || !book.asks) return hold('NO_BOOK');
@@ -55,6 +56,13 @@ function evaluate(opts) {
   if (tauSec < S.minTauSec) return hold('TOO_CLOSE', { q });
   if (tauSec > S.maxTauSec) return hold('TOO_FAR', { q });
   if (lastFillT && t - lastFillT < S.cooldownMs) return hold('COOLDOWN', { q });
+
+  /* Volatility gate: when realized vol is too low, spot is pinned near each
+   * window's open and the model's confidence is whipsaw noise (the weekend's
+   * dead-market losses). Threshold is in %/√hour to match the dashboard;
+   * 0 disables. sigma is per √sec, so %/√hour ÷ 6000 converts. */
+  const minSigma = S.minSigmaHourPct > 0 ? S.minSigmaHourPct / 6000 : 0;
+  if (minSigma > 0 && sigma != null && sigma < minSigma) return hold('LOW_VOL', { q });
 
   const edgeYes = q.yesAsk != null
     ? fair - q.yesAsk - feePerContract(market.platform, q.yesAsk, cfg.fees) : -Infinity;
@@ -97,7 +105,7 @@ function evaluate(opts) {
   return {
     action: best.side === 'yes' ? 'buy_yes' : 'buy_no',
     side: best.side, contracts, price: best.price,
-    edge: round(best.edge), fair, q,
+    edge: round(best.edge), fair, sigma, q,
     edgeYes: round(edgeYes), edgeNo: round(edgeNo),
     reason: 'EDGE',
   };
