@@ -69,6 +69,22 @@ trading-hours rule. Design + backtest against both nights' recorded tapes
 before installing. Note: window partial (2 markets unresolved; ~02:25 UTC
 container restart cost the first overnight hour).
 
+## VOLATILITY GATE BACKTEST (Sun, all recorded tapes, 810 settled) — HYPOTHESIS REJECTED
+
+Replayed 1.4GB of weekend tapes; recorded entrySigmaHourPct per entry.
+PnL by vol bin (pct/sqrt-hr): [0,.05)=-38(n8) [.05,.1)=+137(n114)
+[.1,.2)=-5(n213) [.2,.4)=-100(n312) [.4,.8)=+156(n152) [.8+)=-31(n11).
+Losers cluster in the MIDDLE (.2-.4), not at low vol; the low band (.05-.1)
+is profitable. A vol FLOOR is the wrong shape - cannot isolate a mid band.
+Threshold sweep: off=+120, 0.05=+161 (cuts 8 dead trades), 0.10=+21,
+0.30=-20. Only a tiny 0.05 floor helps, marginally; anything higher HURTS.
+DECISION: DO NOT ship a vol gate. Keep minSigmaHourPct=0. Same lesson as
+the overnight-hours false lead - a tempting pattern that dissolved under
+measurement. Caveats: settlement feed-judged (~5% noise); session tapes may
+double-count markets at boundaries; extreme bins tiny n. Infrastructure
+(sigma logging) KEPT - live desktop run now accumulates clean
+oracle-scorable sigma data to revisit with a bigger sample later.
+
 ## Files
 
 - `cloud-weekend-trades.jsonl` — snapshot of the live paper trade log.
