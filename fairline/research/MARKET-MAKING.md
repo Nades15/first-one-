@@ -85,3 +85,32 @@ Slow retail market-making is hard; many capable people find no durable edge.
 But it's the structurally correct lever, applied to a venue where our proven
 model still works and our slowness is survivable. That's a real shot, and the
 rigorous toolkit we built is exactly what tells a real edge from a mirage.
+
+## PHASE 0 FINDING (desktop probes) — CRYPTO VENUE CLOSED
+
+CLOB ws schema captured (book = full depth; price_change carries
+best_bid/ask). The ws market channel does NOT emit trade events, so the
+"0 trades" reading was a measurement artifact. Definitive check via data-api
+trade history:
+  BTC above $64k (1-6h): 192 trades/hr, spread 0.1c
+  BTC reach $75k (>48h): 75 trades/hr, spread 0.1c
+  BTC above $60k (1-6h): 27 trades/hr, spread 0.1c
+  BTC dip $57.5k (>48h): 23 trades/hr, spread 0.2c
+
+Flow EXISTS (dozens-200/hr) but spreads are ~0.1c and the book reprices
+~11x/sec (668 price_changes/min observed). Market-making earns the spread;
+there is essentially none, and a 2.5s-slow maker loses the quote queue to
+faster bots, taking only adverse fills. Crypto markets are hyper-efficient
+because fair value = a public instant price feed: no informational edge, and
+(being slow) no speed edge.
+
+VERDICT: crypto prediction markets offer no retail edge, taking OR making.
+Venue closed. The ONLY structural place a slow retail edge can live is markets
+where fair value is NOT publicly computable — non-crypto events (politics,
+sports, niche/long-horizon) with wider spreads and genuine uncertainty. That
+is an INFORMATION edge (research/model beats the crowd), not a speed/spread
+edge — the one kind slowness does not disqualify. It is the Scout (scanner/)
+thesis, now equipped with the rigor built here (oracle scoring, replay,
+out-of-sample replication). Odds remain humbling (prediction-market crowds are
+well-calibrated), but it is the only structurally-valid direction left.
+Crypto market-making build: HALTED before the collector.
